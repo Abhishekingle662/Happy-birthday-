@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { decodeConfig, DEFAULT_CONFIG, PRESETS } from '../utils/config.js'
+import { decodeConfig, DEFAULT_CONFIG, PRESETS, isBgDark } from '../utils/config.js'
 import { useMusic } from '../composables/useMusic.js'
 import GameLevel from '../components/game/GameLevel.vue'
 import LevelTransition from '../components/game/LevelTransition.vue'
@@ -20,11 +20,19 @@ const config = computed(() => {
   return DEFAULT_CONFIG
 })
 
-// Theme CSS vars
-const themeStyle = computed(() => ({
-  '--bg': config.value.theme?.bg || PRESETS.classic.bg,
-  '--accent': config.value.theme?.accent || PRESETS.classic.accent,
-}))
+// Theme CSS vars — adaptive text colors for light/dark backgrounds
+const themeStyle = computed(() => {
+  const t = config.value.theme || PRESETS.classic
+  const dark = t.preset ? (PRESETS[t.preset]?.dark ?? true) : isBgDark(t.bg || PRESETS.classic.bg)
+  return {
+    '--bg':            t.bg    || PRESETS.classic.bg,
+    '--accent':        t.accent|| PRESETS.classic.accent,
+    '--text':          dark ? '#ffffff' : '#1a1a1a',
+    '--text-muted':    dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)',
+    '--surface':       dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+    '--surface-hover': dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)',
+  }
+})
 
 // Game state machine
 const phase = ref('level')

@@ -60,16 +60,19 @@ const canProceed = computed(() => props.modelValue.name.trim().length > 0)
 }
 
 .step-title {
-  font-size: 1.6rem;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 400;
+  margin-bottom: 12px;
+  color: var(--accent);
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.4);
+  line-height: 1.6;
 }
 
 .step-sub {
   color: var(--text-muted);
   margin-bottom: 28px;
-  line-height: 1.5;
+  line-height: 2;
+  font-size: 0.55rem;
 }
 
 .field {
@@ -81,38 +84,42 @@ const canProceed = computed(() => props.modelValue.name.trim().length > 0)
 }
 
 .field label {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 0.5rem;
+  font-weight: 400;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
 }
 
 .field input,
 .field textarea {
   background: var(--surface);
-  border: 2px solid transparent;
-  border-radius: var(--radius);
+  border: 2px solid var(--surface-hover);
+  border-radius: 0;
   padding: 12px 16px;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 0.65rem;
+  font-family: 'Press Start 2P', monospace;
   transition: border-color 0.2s;
   resize: none;
+  line-height: 1.8;
 }
 
 .field input:focus,
 .field textarea:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
 }
 
 .field input::placeholder,
 .field textarea::placeholder {
   color: var(--text-muted);
+  font-size: 0.55rem;
 }
 
 .char-count {
-  font-size: 0.78rem;
+  font-size: 0.5rem;
   color: var(--text-muted);
   text-align: right;
 }
