@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { buildShareUrl, DEFAULT_CONFIG, PRESETS } from '../utils/config.js'
+import { buildShareUrl, DEFAULT_CONFIG, PRESETS, isBgDark } from '../utils/config.js'
 import StepDetails from '../components/wizard/StepDetails.vue'
 import StepTheme from '../components/wizard/StepTheme.vue'
 import StepMusic from '../components/wizard/StepMusic.vue'
@@ -21,11 +21,19 @@ const shareUrl = computed(() => buildShareUrl(config.value))
 function next() { if (step.value < STEPS.length - 1) step.value++ }
 function prev() { if (step.value > 0) step.value-- }
 
-// Apply theme preview to the wizard itself
-const themeStyle = computed(() => ({
-  '--bg': config.value.theme.bg,
-  '--accent': config.value.theme.accent,
-}))
+// Apply theme preview to the wizard itself, including adaptive text colors
+const themeStyle = computed(() => {
+  const t = config.value.theme
+  const dark = t.preset ? (PRESETS[t.preset]?.dark ?? true) : isBgDark(t.bg)
+  return {
+    '--bg':            t.bg,
+    '--accent':        t.accent,
+    '--text':          dark ? '#ffffff' : '#1a1a1a',
+    '--text-muted':    dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)',
+    '--surface':       dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)',
+    '--surface-hover': dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)',
+  }
+})
 </script>
 
 <template>
@@ -72,21 +80,24 @@ const themeStyle = computed(() => ({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 32px;
-  border-bottom: 1px solid var(--surface);
+  padding: 16px 24px;
+  border-bottom: 3px solid var(--accent);
   flex-wrap: wrap;
   gap: 16px;
+  background: rgba(0,0,0,0.2);
 }
 
 .logo {
-  font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 1px;
+  color: var(--accent);
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
 }
 
 .step-pills {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -94,34 +105,37 @@ const themeStyle = computed(() => ({
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 0;
+  font-size: 0.5rem;
+  font-weight: 400;
   background: var(--surface);
   color: var(--text-muted);
-  transition: background 0.2s, color 0.2s;
+  border: 2px solid var(--surface-hover);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .pill.active {
   background: var(--accent);
   color: #fff;
+  border-color: rgba(0,0,0,0.3);
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.4);
 }
 
 .pill.done {
   background: var(--surface-hover);
   color: var(--text);
+  border-color: var(--accent);
 }
 
 .pill-num {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  width: 18px;
+  height: 18px;
   background: rgba(255,255,255,0.15);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.5rem;
 }
 
 .wizard-main {

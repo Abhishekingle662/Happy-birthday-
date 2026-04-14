@@ -37,11 +37,24 @@ export const DEFAULT_CONFIG = {
 }
 
 export const PRESETS = {
-  classic:  { label: 'Classic',  bg: '#1a1a2e', accent: '#e94560' },
-  neon:     { label: 'Neon',     bg: '#0d0d0d', accent: '#39ff14' },
-  pastel:   { label: 'Pastel',   bg: '#fce4ec', accent: '#f06292' },
-  galaxy:   { label: 'Galaxy',   bg: '#0b0c2a', accent: '#a78bfa' },
-  tropical: { label: 'Tropical', bg: '#004d40', accent: '#ffab40' },
+  classic:  { label: 'Classic',  bg: '#1a1a2e', accent: '#e94560',  dark: true  },
+  neon:     { label: 'Neon',     bg: '#0d0d0d', accent: '#39ff14',  dark: true  },
+  pastel:   { label: 'Pastel',   bg: '#fce4ec', accent: '#c2185b',  dark: false },
+  galaxy:   { label: 'Galaxy',   bg: '#0b0c2a', accent: '#a78bfa',  dark: true  },
+  tropical: { label: 'Tropical', bg: '#004d40', accent: '#ffab40',  dark: true  },
+}
+
+/**
+ * Returns whether a hex color is perceptually dark (luminance < 0.35).
+ * Used to decide text color when a custom bg is chosen.
+ */
+export function isBgDark(hex) {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  // Relative luminance (sRGB)
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  return lum < 0.35
 }
 
 export const BUNDLED_TRACKS = [

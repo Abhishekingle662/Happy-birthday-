@@ -1,6 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { gsap } from 'gsap'
+import BalloonSprite from './sprites/BalloonSprite.vue'
+import GiftSprite from './sprites/GiftSprite.vue'
+import CandleSprite from './sprites/CandleSprite.vue'
 
 const props = defineProps({
   level: { type: Number, required: true },
@@ -8,31 +11,31 @@ const props = defineProps({
 })
 const emit = defineEmits(['complete'])
 
-// Level configs
+// Level configs — generous timings so the game feels fun, not punishing
 const LEVEL_CONFIG = {
   1: {
     title: 'Pop the Balloons! 🎈',
     subtitle: 'Tap every balloon before they float away!',
     count: 15,
-    spawnInterval: 600,   // ms between spawns
-    objectLifetime: 4500, // ms before object disappears (miss)
-    objectSize: 64,
+    spawnInterval: 900,    // ms between spawns
+    objectLifetime: 7000,  // ms before object disappears
+    objectSize: 80,
   },
   2: {
     title: 'Catch the Gifts! 🎁',
     subtitle: 'Tap every falling gift box!',
     count: 20,
-    spawnInterval: 500,
-    objectLifetime: 3200,
-    objectSize: 54,
+    spawnInterval: 800,
+    objectLifetime: 5500,
+    objectSize: 72,
   },
   3: {
     title: 'Tap the Candles! 🕯️',
     subtitle: 'Tap every candle before it flickers out!',
     count: 25,
-    spawnInterval: 380,
-    objectLifetime: 2200,
-    objectSize: 44,
+    spawnInterval: 700,
+    objectLifetime: 4000,
+    objectSize: 64,
   },
 }
 
@@ -217,7 +220,7 @@ function handleTap(e, id) {
 </script>
 
 <template>
-  <div class="game-level" ref="gameArea">
+  <div class="game-level" :class="`bg-level-${level}`" ref="gameArea">
     <!-- Header -->
     <div class="level-header">
       <h2 class="level-title">{{ cfg.title }}</h2>
@@ -241,22 +244,27 @@ function handleTap(e, id) {
         width: cfg.objectSize + 'px',
         height: cfg.objectSize + 'px',
         opacity: obj.opacity,
-        fontSize: (cfg.objectSize * 0.65) + 'px',
       }"
       @click="handleTap($event, obj.id)"
       @touchstart.prevent="handleTap($event, obj.id)"
     >
-      {{ emoji }}
+      <BalloonSprite v-if="level === 1" />
+      <GiftSprite    v-else-if="level === 2" />
+      <CandleSprite  v-else />
     </div>
 
     <!-- Waiting overlay -->
     <Transition name="fade">
       <div v-if="!gameStarted" class="start-overlay">
         <div class="start-content">
-          <div class="start-emoji">{{ emoji }}</div>
-          <h3>Level {{ level }}</h3>
+          <div class="start-sprite">
+            <BalloonSprite v-if="level === 1" />
+            <GiftSprite    v-else-if="level === 2" />
+            <CandleSprite  v-else />
+          </div>
+          <h3>LEVEL {{ level }}</h3>
           <p>{{ cfg.title }}</p>
-          <p class="start-hint">Get ready…</p>
+          <p class="start-hint">▶ GET READY…</p>
         </div>
       </div>
     </Transition>
@@ -273,6 +281,67 @@ function handleTap(e, id) {
   user-select: none;
 }
 
+/* Level 1 — sky with pixel clouds pattern */
+.game-level.bg-level-1 {
+  background-image:
+    radial-gradient(ellipse 40px 20px at 15% 20%, rgba(255,255,255,0.08) 100%, transparent 100%),
+    radial-gradient(ellipse 30px 15px at 70% 35%, rgba(255,255,255,0.06) 100%, transparent 100%),
+    radial-gradient(ellipse 50px 25px at 45% 15%, rgba(255,255,255,0.07) 100%, transparent 100%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(255,255,255,0.015) 31px,
+      rgba(255,255,255,0.015) 32px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 31px,
+      rgba(255,255,255,0.015) 31px,
+      rgba(255,255,255,0.015) 32px
+    );
+}
+
+/* Level 2 — indoor party room with pixel tile floor */
+.game-level.bg-level-2 {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 47px,
+      rgba(255,255,255,0.03) 47px,
+      rgba(255,255,255,0.03) 48px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 47px,
+      rgba(255,255,255,0.03) 47px,
+      rgba(255,255,255,0.03) 48px
+    ),
+    linear-gradient(to bottom, transparent 70%, rgba(0,0,0,0.15) 100%);
+}
+
+/* Level 3 — dark dungeon with pixel brick pattern */
+.game-level.bg-level-3 {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 23px,
+      rgba(0,0,0,0.2) 23px,
+      rgba(0,0,0,0.2) 24px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 47px,
+      rgba(0,0,0,0.15) 47px,
+      rgba(0,0,0,0.15) 48px
+    );
+}
+
 .level-header {
   position: fixed;
   top: 0;
@@ -281,75 +350,83 @@ function handleTap(e, id) {
   z-index: 10;
   padding: 52px 24px 16px;
   text-align: center;
-  background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+  background: linear-gradient(to bottom, var(--bg) 55%, transparent);
   pointer-events: none;
 }
 
 .level-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin-bottom: 4px;
+  font-size: 0.7rem;
+  font-weight: 400;
+  margin-bottom: 6px;
+  color: var(--accent);
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+  line-height: 1.6;
 }
 
 .level-sub {
-  font-size: 0.9rem;
+  font-size: 0.45rem;
   color: var(--text-muted);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  line-height: 2;
 }
 
 .progress-bar-wrap {
   position: relative;
-  height: 8px;
+  height: 12px;
   background: var(--surface);
-  border-radius: 999px;
+  border-radius: 0;
   max-width: 320px;
   margin: 0 auto;
   overflow: visible;
+  border: 2px solid var(--surface-hover);
 }
 
 .progress-bar {
   height: 100%;
   background: var(--accent);
-  border-radius: 999px;
-  transition: width 0.3s ease;
+  border-radius: 0;
+  transition: width 0.3s steps(10);
+  box-shadow: 2px 0 0px rgba(255,255,255,0.3) inset;
 }
 
 .progress-label {
   position: absolute;
   right: 0;
-  top: -20px;
-  font-size: 0.75rem;
+  top: -22px;
+  font-size: 0.45rem;
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: 400;
 }
 
-/* Game objects */
+/* Game objects — retro pixel style */
 .game-object {
   position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  border-radius: 50%;
+  border-radius: 0;
   transform-origin: center;
   transition: none;
   -webkit-tap-highlight-color: transparent;
   will-change: transform, opacity;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+  image-rendering: pixelated;
+  /* Pixel drop shadow */
+  filter: drop-shadow(3px 3px 0px rgba(0,0,0,0.6));
 }
 
 .game-object:hover {
-  filter: drop-shadow(0 4px 16px rgba(255,255,255,0.3));
+  filter: drop-shadow(3px 3px 0px rgba(0,0,0,0.6)) brightness(1.2);
 }
 
 /* Candle flicker */
 .game-object.level-3 {
-  animation: flicker 0.8s ease-in-out infinite alternate;
+  animation: flicker 0.6s steps(2) infinite alternate;
 }
 
 @keyframes flicker {
-  from { filter: drop-shadow(0 0 8px var(--accent)); }
-  to   { filter: drop-shadow(0 0 20px var(--accent)) brightness(1.2); }
+  from { filter: drop-shadow(3px 3px 0px rgba(0,0,0,0.6)) drop-shadow(0 0 6px var(--accent)); }
+  to   { filter: drop-shadow(3px 3px 0px rgba(0,0,0,0.6)) drop-shadow(0 0 14px var(--accent)) brightness(1.15); }
 }
 
 /* Start overlay */
@@ -368,33 +445,48 @@ function handleTap(e, id) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+  padding: 32px;
+  border: 3px solid var(--accent);
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.5);
+  background: var(--surface);
 }
 
-.start-emoji {
-  font-size: 5rem;
-  animation: bounce 0.8s ease infinite alternate;
+.start-sprite {
+  width: 80px;
+  height: 80px;
+  animation: bounce 0.5s steps(4) infinite alternate;
+  image-rendering: pixelated;
 }
 
 @keyframes bounce {
   from { transform: translateY(0); }
-  to   { transform: translateY(-16px); }
+  to   { transform: translateY(-12px); }
 }
 
 .start-content h3 {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--accent);
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
 }
 
 .start-content p {
-  font-size: 1.1rem;
+  font-size: 0.55rem;
   color: var(--text-muted);
+  line-height: 2;
 }
 
 .start-hint {
-  font-size: 0.9rem !important;
+  font-size: 0.5rem !important;
   color: var(--accent) !important;
-  font-weight: 600;
+  font-weight: 400;
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.5s ease; }
