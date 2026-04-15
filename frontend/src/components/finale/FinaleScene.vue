@@ -206,32 +206,69 @@ onUnmounted(() => {
         @touchstart.prevent="phase === 'cake' && blowCandles()"
         :title="phase === 'cake' ? 'Tap to blow the candles!' : ''"
       >
-        <!-- Candles -->
-        <div class="candles">
-          <div
-            v-for="(lit, i) in candlesLit"
-            :key="i"
-            class="candle"
-          >
-            <div class="candle-body"></div>
-            <Transition name="flame">
-              <div v-if="lit" class="flame">
-                <div class="flame-inner"></div>
-              </div>
-            </Transition>
-            <div v-if="!lit" class="smoke"></div>
-          </div>
-        </div>
+        <!-- Pixel-art cake SVG -->
+        <svg
+          class="cake-svg"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 120 100"
+          shape-rendering="crispEdges"
+          style="image-rendering: pixelated; overflow: visible;"
+        >
+          <!-- Candles (5) -->
+          <g v-for="(lit, i) in candlesLit" :key="i">
+            <!-- Candle body -->
+            <rect :x="14 + i * 22" y="28" width="8" height="16" fill="#fff9c4" />
+            <rect :x="16 + i * 22" y="28" width="2" height="16" fill="rgba(255,255,255,0.5)" />
+            <!-- Wick -->
+            <rect :x="17 + i * 22" y="22" width="2" height="7" fill="#555" />
+            <!-- Flame (visible when lit) -->
+            <g v-if="lit">
+              <ellipse :cx="18 + i * 22" cy="18" rx="5" ry="7" fill="#ff9800" />
+              <ellipse :cx="18 + i * 22" cy="19" rx="3" ry="5" fill="#ffeb3b" />
+              <ellipse :cx="18 + i * 22" cy="20" rx="1.5" ry="3" fill="#fff" />
+            </g>
+            <!-- Smoke (visible when blown) -->
+            <g v-if="!lit">
+              <rect :x="17 + i * 22" y="14" width="2" height="8" fill="rgba(180,180,180,0.5)" />
+            </g>
+          </g>
 
-        <!-- Cake body -->
-        <div class="cake-top" :style="{ background: accent }"></div>
-        <div class="cake-middle"></div>
-        <div class="cake-bottom"></div>
+          <!-- Cake top tier -->
+          <rect x="10" y="44" width="100" height="20" :fill="accent" />
+          <rect x="10" y="44" width="100" height="4" fill="rgba(255,255,255,0.2)" />
+          <rect x="100" y="44" width="10" height="20" fill="rgba(0,0,0,0.15)" />
+          <!-- Frosting drips on top tier -->
+          <rect x="18" y="62" width="6" height="4" fill="rgba(255,255,255,0.6)" />
+          <rect x="38" y="62" width="6" height="6" fill="rgba(255,255,255,0.6)" />
+          <rect x="58" y="62" width="6" height="4" fill="rgba(255,255,255,0.6)" />
+          <rect x="78" y="62" width="6" height="5" fill="rgba(255,255,255,0.6)" />
+          <rect x="96" y="62" width="6" height="3" fill="rgba(255,255,255,0.6)" />
+
+          <!-- Cake middle tier -->
+          <rect x="4" y="66" width="112" height="22" fill="#f48fb1" />
+          <rect x="4" y="66" width="112" height="4" fill="rgba(255,255,255,0.2)" />
+          <rect x="108" y="66" width="8" height="22" fill="rgba(0,0,0,0.12)" />
+          <!-- Stars decoration -->
+          <text x="20" y="82" font-size="8" fill="rgba(255,255,255,0.7)" font-family="monospace">★</text>
+          <text x="50" y="82" font-size="8" fill="rgba(255,255,255,0.7)" font-family="monospace">★</text>
+          <text x="80" y="82" font-size="8" fill="rgba(255,255,255,0.7)" font-family="monospace">★</text>
+
+          <!-- Cake bottom tier -->
+          <rect x="0" y="88" width="120" height="10" fill="#ab47bc" />
+          <rect x="0" y="88" width="120" height="3" fill="rgba(255,255,255,0.15)" />
+          <rect x="112" y="88" width="8" height="10" fill="rgba(0,0,0,0.12)" />
+
+          <!-- Plate -->
+          <rect x="0" y="97" width="120" height="3" fill="rgba(255,255,255,0.2)" />
+
+          <!-- Shadow -->
+          <ellipse cx="60" cy="101" rx="55" ry="4" fill="rgba(0,0,0,0.25)" />
+        </svg>
 
         <!-- Tap hint -->
         <Transition name="fade">
           <div v-if="phase === 'cake'" class="tap-hint">
-            👆 Tap to blow the candles!
+            ▶ TAP TO BLOW THE CANDLES!
           </div>
         </Transition>
       </div>
@@ -241,8 +278,8 @@ onUnmounted(() => {
     <Transition name="message-reveal">
       <div v-if="showMessage" class="message-overlay">
         <div class="finale-emoji-row">🎉🎂🎊</div>
-        <h1 class="finale-name">Happy Birthday,<br>{{ name }}!</h1>
-        <p v-if="message" class="finale-message">"{{ message }}"</p>
+        <h1 class="finale-name">HAPPY BIRTHDAY,<br>{{ name.toUpperCase() }}!</h1>
+        <p v-if="message" class="finale-message">{{ message }}</p>
         <div class="finale-emoji-row" style="margin-top: 8px;">🎈🥳🎁</div>
       </div>
     </Transition>
@@ -302,7 +339,7 @@ onUnmounted(() => {
 }
 
 .cake-scene.dimmed {
-  opacity: 0.15;
+  opacity: 0.12;
   pointer-events: none;
 }
 
@@ -318,147 +355,37 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.cake.tappable:hover .cake-top {
-  filter: brightness(1.15);
+.cake-svg {
+  width: clamp(180px, 40vw, 300px);
+  height: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.5));
+  animation: cake-idle 1s steps(2) infinite alternate;
 }
 
-/* Candles */
-.candles {
-  display: flex;
-  gap: 14px;
-  margin-bottom: 4px;
-  align-items: flex-end;
+.cake.tappable .cake-svg {
+  animation: cake-idle 0.6s steps(2) infinite alternate;
 }
 
-.candle {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative;
-}
-
-.candle-body {
-  width: 12px;
-  height: 36px;
-  background: linear-gradient(to right, #fff9c4, #fff176, #fdd835);
-  border-radius: 3px 3px 2px 2px;
-}
-
-.flame {
-  width: 14px;
-  height: 22px;
-  background: radial-gradient(ellipse at 50% 80%, #fff 0%, #ffeb3b 40%, #ff9800 70%, transparent 100%);
-  border-radius: 50% 50% 30% 30%;
-  position: absolute;
-  top: -22px;
-  animation: flame-flicker 0.4s ease-in-out infinite alternate;
-  filter: blur(0.5px);
-}
-
-.flame-inner {
-  width: 6px;
-  height: 10px;
-  background: radial-gradient(ellipse, #fff 0%, #ffeb3b 100%);
-  border-radius: 50%;
-  margin: 6px auto 0;
-}
-
-@keyframes flame-flicker {
-  from { transform: scaleX(1) scaleY(1) rotate(-2deg); }
-  to   { transform: scaleX(0.85) scaleY(1.1) rotate(2deg); }
-}
-
-.smoke {
-  width: 4px;
-  height: 20px;
-  background: linear-gradient(to top, rgba(200,200,200,0.6), transparent);
-  border-radius: 2px;
-  position: absolute;
-  top: -24px;
-  animation: smoke-rise 1s ease-out forwards;
-}
-
-@keyframes smoke-rise {
-  from { opacity: 0.8; transform: translateY(0) scaleX(1); }
-  to   { opacity: 0; transform: translateY(-30px) scaleX(2); }
-}
-
-/* Flame transition */
-.flame-enter-active { transition: all 0.2s ease; }
-.flame-leave-active { transition: all 0.3s ease; }
-.flame-enter-from   { opacity: 0; transform: scaleY(0); }
-.flame-leave-to     { opacity: 0; transform: scaleY(0) translateY(-10px); }
-
-/* Cake tiers */
-.cake-top {
-  width: 160px;
-  height: 50px;
-  border-radius: 8px 8px 0 0;
-  position: relative;
-  transition: filter 0.2s;
-}
-
-.cake-top::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: -4px;
-  right: -4px;
-  height: 12px;
-  background: #fff;
-  border-radius: 50%;
-  opacity: 0.3;
-}
-
-.cake-middle {
-  width: 200px;
-  height: 60px;
-  background: linear-gradient(135deg, #f8bbd0, #f48fb1);
-  position: relative;
-}
-
-.cake-middle::before {
-  content: '🍓 🍓 🍓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1rem;
-  letter-spacing: 4px;
-}
-
-.cake-bottom {
-  width: 240px;
-  height: 70px;
-  background: linear-gradient(135deg, #ce93d8, #ab47bc);
-  border-radius: 0 0 12px 12px;
-  position: relative;
-}
-
-.cake-bottom::before {
-  content: '✨ Happy Birthday ✨';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 0.75rem;
-  color: rgba(255,255,255,0.9);
-  white-space: nowrap;
-  font-weight: 600;
+@keyframes cake-idle {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-4px); }
 }
 
 /* Tap hint */
 .tap-hint {
-  margin-top: 24px;
-  font-size: 1rem;
+  margin-top: 20px;
+  font-size: 0.45rem;
   color: var(--accent);
-  font-weight: 600;
-  animation: pulse-hint 1.2s ease-in-out infinite;
+  font-weight: 400;
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+  animation: blink 1s steps(1) infinite;
+  line-height: 2;
 }
 
-@keyframes pulse-hint {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.6; transform: scale(0.97); }
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 
 /* ── Message overlay ── */
@@ -473,28 +400,32 @@ onUnmounted(() => {
   padding: 32px 24px;
   text-align: center;
   pointer-events: none;
+  background: rgba(0,0,0,0.5);
 }
 
 .finale-name {
-  font-size: clamp(2rem, 8vw, 4rem);
-  font-weight: 900;
-  color: var(--text);
-  line-height: 1.15;
+  font-size: clamp(0.7rem, 3vw, 1.1rem);
+  font-weight: 400;
+  color: var(--accent);
+  line-height: 2;
   margin: 16px 0 12px;
-  text-shadow: 0 2px 20px rgba(0,0,0,0.4);
+  text-shadow: 3px 3px 0px rgba(0,0,0,0.6);
 }
 
 .finale-message {
-  font-size: clamp(1rem, 3vw, 1.4rem);
-  color: var(--text-muted);
-  font-style: italic;
+  font-size: clamp(0.45rem, 1.5vw, 0.65rem);
+  color: var(--text);
   max-width: 480px;
-  line-height: 1.6;
-  text-shadow: 0 1px 8px rgba(0,0,0,0.3);
+  line-height: 2.2;
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+  border: 2px solid var(--surface-hover);
+  padding: 12px 16px;
+  background: var(--surface);
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.4);
 }
 
 .finale-emoji-row {
-  font-size: clamp(1.8rem, 5vw, 2.8rem);
+  font-size: clamp(1.4rem, 4vw, 2.2rem);
   letter-spacing: 8px;
 }
 

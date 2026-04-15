@@ -84,16 +84,19 @@ function openPreview() {
 }
 
 .step-title {
-  font-size: 1.6rem;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 400;
+  margin-bottom: 12px;
+  color: var(--accent);
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.4);
+  line-height: 1.6;
 }
 
 .step-sub {
   color: var(--text-muted);
   margin-bottom: 24px;
-  line-height: 1.5;
+  line-height: 2;
+  font-size: 0.55rem;
 }
 
 .step-sub strong {
@@ -101,34 +104,40 @@ function openPreview() {
 }
 
 .summary-card {
-  border-radius: var(--radius);
-  border: 2px solid;
-  padding: 20px;
+  border-radius: 0;
+  border: 3px solid;
+  padding: 16px;
   margin-bottom: 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   transition: background 0.3s, border-color 0.3s;
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.4);
 }
 
 .summary-name {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 0.6rem;
+  font-weight: 400;
+  line-height: 1.8;
+  text-shadow: 1px 1px 0px rgba(0,0,0,0.4);
 }
 
 .summary-meta {
   display: flex;
-  gap: 16px;
-  font-size: 0.85rem;
-  opacity: 0.7;
+  gap: 12px;
+  font-size: 0.4rem;
+  opacity: 0.75;
   flex-wrap: wrap;
+  line-height: 2;
 }
 
 .summary-message {
-  font-style: italic;
   opacity: 0.85;
-  font-size: 0.95rem;
+  font-size: 0.45rem;
   margin-top: 4px;
+  line-height: 2;
+  border-left: 2px solid rgba(255,255,255,0.3);
+  padding-left: 8px;
 }
 
 .url-box {
@@ -141,14 +150,15 @@ function openPreview() {
   flex: 1;
   background: var(--surface);
   border: 2px solid var(--surface-hover);
-  border-radius: var(--radius);
+  border-radius: 0;
   padding: 10px 14px;
   color: var(--text);
-  font-size: 0.85rem;
-  font-family: monospace;
+  font-size: 0.4rem;
+  font-family: 'Press Start 2P', monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 2;
 }
 
 .url-input:focus { outline: none; border-color: var(--accent); }

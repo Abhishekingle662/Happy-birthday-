@@ -3,8 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { decodeConfig, DEFAULT_CONFIG, PRESETS, isBgDark } from '../utils/config.js'
 import { useMusic } from '../composables/useMusic.js'
-import GameLevel from '../components/game/GameLevel.vue'
-import LevelTransition from '../components/game/LevelTransition.vue'
+import AdventureMap from '../components/AdventureMap.vue'
 import FinaleScene from '../components/finale/FinaleScene.vue'
 import MuteButton from '../components/MuteButton.vue'
 
@@ -34,9 +33,8 @@ const themeStyle = computed(() => {
   }
 })
 
-// Game state machine
-const phase = ref('level')
-const currentLevel = ref(1)
+// Game state machine: 'adventure' | 'finale'
+const phase = ref('adventure')
 
 const { play, stop, muted, toggleMute, unlockAndPlay } = useMusic()
 
@@ -50,17 +48,8 @@ onUnmounted(() => {
   stop()
 })
 
-function onLevelComplete() {
-  if (currentLevel.value < 3) {
-    phase.value = 'transition'
-  } else {
-    phase.value = 'finale'
-  }
-}
-
-function onTransitionDone() {
-  currentLevel.value++
-  phase.value = 'level'
+function startFinale() {
+  phase.value = 'finale'
 }
 </script>
 
@@ -69,29 +58,20 @@ function onTransitionDone() {
     <!-- Mute toggle always visible -->
     <MuteButton :muted="muted" @toggle="toggleMute" />
 
-    <!-- Level indicator -->
-    <div v-if="phase === 'level'" class="level-indicator">
-      Level {{ currentLevel }} of 3
-    </div>
-
     <Transition name="fade" mode="out-in">
-      <GameLevel
-        v-if="phase === 'level'"
-        :key="currentLevel"
-        :level="currentLevel"
-        :player-name="config.name"
-        @complete="onLevelComplete"
+      <!-- Adventure map game -->
+      <AdventureMap
+        v-if="phase === 'adventure'"
+        :recipient-name="config.recipientName || config.name || 'Aria'"
+        :personal-message="config.personalMessage || config.message || ''"
+        @complete="startFinale"
       />
-      <LevelTransition
-        v-else-if="phase === 'transition'"
-        :completed-level="currentLevel"
-        :next-level="currentLevel + 1"
-        @done="onTransitionDone"
-      />
+
+      <!-- Finale after adventure complete -->
       <FinaleScene
         v-else-if="phase === 'finale'"
-        :name="config.name"
-        :message="config.message"
+        :name="config.recipientName || config.name || 'Friend'"
+        :message="config.personalMessage || config.message || ''"
         :accent="config.theme?.accent || PRESETS.classic.accent"
       />
     </Transition>
@@ -106,22 +86,6 @@ function onTransitionDone() {
   position: relative;
   overflow: hidden;
   transition: background 0.4s ease;
-}
-
-.level-indicator {
-  position: fixed;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--surface);
-  backdrop-filter: blur(8px);
-  padding: 6px 18px;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  z-index: 10;
-  pointer-events: none;
 }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }

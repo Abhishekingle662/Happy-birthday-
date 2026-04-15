@@ -22,24 +22,24 @@ defineEmits(['toggle'])
   z-index: 100;
   width: 48px;
   height: 48px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--surface);
-  backdrop-filter: blur(8px);
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid var(--surface-hover);
-  transition: transform 0.15s, background 0.15s;
+  border: 2px solid var(--accent);
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.5);
+  transition: background 0.15s;
   cursor: pointer;
 }
 
 .mute-btn:hover {
   background: var(--surface-hover);
-  transform: scale(1.1);
 }
 
 .mute-btn:active {
-  transform: scale(0.95);
+  transform: translate(3px, 3px);
+  box-shadow: none;
 }
 </style>
