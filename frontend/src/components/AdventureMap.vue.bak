@@ -1,0 +1,314 @@
+<template>
+  <div class="adventure-wrapper" style="position: relative; width: 640px; margin: 40px auto; background: #000; border: 8px solid #222;">
+    <div style="position: absolute; top: -38px; left: 0; right: 0; text-align: center; color: #ffcc00; font-family: 'Courier New', monospace; font-size: 15px; text-shadow: 0 0 8px #000;">
+      ▲ ▼ ◀ ▶  or WASD to move • SPACE / Enter to talk
+    </div>
+
+    <canvas ref="canvas" width="640" height="480" style="image-rendering: pixelated; display: block;"></canvas>
+
+    <div style="position: absolute; top: 22px; left: 22px; background: rgba(0,0,0,0.8); color: #fff; padding: 8px 18px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 16px;">
+      Clues collected: <strong>{{ cluesCollected.length }}/4</strong>
+    </div>
+
+    <!-- Dialogue -->
+    <div v-if="dialogueOpen" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; color: #222; border: 8px solid #333; padding: 30px 40px; max-width: 520px; width: 90%; text-align: center; box-shadow: 0 15px 50px rgba(0,0,0,0.7); font-family: 'Courier New', monospace; z-index: 10;">
+      <div style="font-weight: bold; font-size: 26px; margin-bottom: 16px;">{{ currentDialogue.speaker }}</div>
+      <p v-html="currentDialogue.message" style="font-size: 19px; line-height: 1.45;"></p>
+      <button @click="closeDialogue" style="margin-top: 25px; padding: 14px 45px; font-size: 19px; background: #ffcc00; border: 5px solid #333; cursor: pointer; font-family: inherit;">Continue →</button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+
+const props = defineProps({
+  recipientName: { type: String, default: 'Aria' },
+  personalMessage: { type: String, default: '' }
+})
+
+const emit = defineEmits(['complete'])
+
+const canvas = ref(null)
+let ctx
+const TILE_SIZE = 32
+const COLS = 20
+const ROWS = 15
+
+const map = [
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,2],
+  [2,0,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,4,4,0,2],
+  [2,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,4,4,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2],
+  [2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]
+]
+
+// Add paths
+for (let i = 2; i < 18; i++) map[8][i] = 1
+for (let i = 3; i < 9; i++) map[i][4] = 1
+for (let i = 8; i < 13; i++) map[i][15] = 1
+for (let i = 5; i < 15; i++) map[4][i] = 1
+// Extra trees
+map[2][8] = 2; map[2][9] = 2; map[3][10] = 2; map[5][12] = 2
+map[6][7] = 2; map[1][12] = 2; map[1][13] = 2; map[10][5] = 2; map[11][6] = 2
+
+const player = { tileX: 3, tileY: 8 }
+
+const npcs = [
+  {
+    id: 1, name: 'Mom', tileX: 4, tileY: 7,
+    message: `Happy Birthday, ${props.recipientName}! The garden's roses hold the first secret… Clue: 'Bloom where the roses grow.'`,
+    clue: 'Bloom where the roses grow (Garden)', talked: false
+  },
+  {
+    id: 2, name: 'Gardener', tileX: 9, tileY: 4,
+    message: `Hello ${props.recipientName}! Happy birthday. The merchant has the next clue. Clue: 'Where coins jingle and gifts are sold.'`,
+    clue: 'Where coins jingle and gifts are sold (Market)', talked: false
+  },
+  {
+    id: 3, name: 'Merchant', tileX: 16, tileY: 8,
+    message: `Happy birthday ${props.recipientName}! Clue: 'The old fountain knows the way to the grove.'`,
+    clue: 'The old fountain knows the way to the grove', talked: false
+  },
+  {
+    id: 4, name: 'Fountain Kid', tileX: 12, tileY: 11,
+    message: `Hey ${props.recipientName}, happy birthday! The Hidden Grove is behind the big oak. Clue: 'Behind the ancient oak in the north garden.'`,
+    clue: 'Behind the ancient oak in the north garden', talked: false
+  }
+]
+
+const giftPosition = { tileX: 17, tileY: 2 }
+
+const cluesCollected = ref([])
+const dialogueOpen = ref(false)
+const currentDialogue = ref({ speaker: '', message: '' })
+let giftCompleted = false
+
+const keys = {}
+let lastMoveTime = 0
+const MOVE_DELAY = 160
+
+const TILE_COLORS = {
+  0: '#90EE90',
+  1: '#DEB887',
+  2: '#228B22',
+  3: '#A9A9A9',
+  4: '#FF8C00'
+}
+
+const isWalkable = (x, y) => {
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false
+  const t = map[y][x]
+  return t === 0 || t === 1
+}
+
+const drawMap = () => {
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const tile = map[y][x]
+      ctx.fillStyle = TILE_COLORS[tile] || '#90EE90'
+      ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+      if (tile === 2) {
+        ctx.fillStyle = '#006400'
+        ctx.fillRect(x * TILE_SIZE + 10, y * TILE_SIZE + 18, 12, 12)
+        ctx.fillStyle = '#228B22'
+        ctx.beginPath()
+        ctx.arc(x * TILE_SIZE + 16, y * TILE_SIZE + 12, 13, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      if (tile === 3) {
+        ctx.fillStyle = '#8B4513'
+        ctx.beginPath()
+        ctx.moveTo(x * TILE_SIZE + 4, y * TILE_SIZE + 4)
+        ctx.lineTo(x * TILE_SIZE + 28, y * TILE_SIZE + 4)
+        ctx.lineTo(x * TILE_SIZE + 16, y * TILE_SIZE + 22)
+        ctx.fill()
+      }
+      if (tile === 4) {
+        ctx.fillStyle = '#FFD700'
+        ctx.fillRect(x * TILE_SIZE + 6, y * TILE_SIZE + 6, 20, 8)
+      }
+    }
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.95)'
+  ctx.font = 'bold 14px Courier New'
+  ctx.fillText('🏠 TOWN', 30, 60)
+  ctx.fillText('🌸 GARDEN', 240, 70)
+  ctx.fillText('🛒 MARKET', 440, 220)
+  ctx.fillText('🌳 HIDDEN GROVE', 480, 90)
+}
+
+const drawPlayer = () => {
+  const px = player.tileX * TILE_SIZE + 4
+  const py = player.tileY * TILE_SIZE + 4
+  // Body (pink outfit)
+  ctx.fillStyle = '#FF69B4'
+  ctx.fillRect(px + 7, py + 14, 18, 15)
+  // Head
+  ctx.fillStyle = '#FDD5B5'
+  ctx.beginPath()
+  ctx.arc(px + 16, py + 11, 8, 0, Math.PI * 2)
+  ctx.fill()
+  // Hair (purple)
+  ctx.fillStyle = '#4B0082'
+  ctx.fillRect(px + 9, py + 4, 14, 9)
+  // Eyes
+  ctx.fillStyle = '#000'
+  ctx.fillRect(px + 12, py + 9, 3, 3)
+  ctx.fillRect(px + 20, py + 9, 3, 3)
+}
+
+const drawNPCs = () => {
+  const npcColors = ['#00BFFF', '#32CD32', '#FF4500', '#FFFF00']
+  npcs.forEach(npc => {
+    const px = npc.tileX * TILE_SIZE + 4
+    const py = npc.tileY * TILE_SIZE + 4
+    ctx.fillStyle = npcColors[npc.id - 1]
+    ctx.fillRect(px + 7, py + 14, 18, 15)
+    ctx.fillStyle = '#FDD5B5'
+    ctx.beginPath()
+    ctx.arc(px + 16, py + 11, 8, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.fillStyle = '#000'
+    ctx.fillRect(px + 12, py + 9, 2, 2)
+    ctx.fillRect(px + 20, py + 9, 2, 2)
+    // Talk indicator if not yet talked
+    if (!npc.talked) {
+      ctx.fillStyle = '#FFD700'
+      ctx.font = 'bold 12px Courier New'
+      ctx.fillText('!', npc.tileX * TILE_SIZE + 14, npc.tileY * TILE_SIZE + 2)
+    }
+  })
+
+  // Gift box
+  if (!giftCompleted) {
+    const gx = giftPosition.tileX * TILE_SIZE + 8
+    const gy = giftPosition.tileY * TILE_SIZE + 8
+    ctx.fillStyle = '#FFD700'
+    ctx.fillRect(gx, gy, 16, 16)
+    ctx.fillStyle = '#FF0000'
+    ctx.fillRect(gx + 3, gy + 3, 10, 4)
+    ctx.fillRect(gx + 7, gy, 3, 16)
+    // Glow effect when all clues collected
+    if (cluesCollected.value.length >= 4) {
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth = 2
+      ctx.strokeRect(gx - 2, gy - 2, 20, 20)
+    }
+  }
+}
+
+const isNear = (ex, ey, range = 1) => {
+  return Math.abs(ex - player.tileX) <= range && Math.abs(ey - player.tileY) <= range
+}
+
+const showDialogue = (npc = null, isGift = false) => {
+  dialogueOpen.value = true
+  if (isGift) {
+    if (cluesCollected.value.length >= 4) {
+      currentDialogue.value = {
+        speaker: '🎉 MYSTERY GIFT!',
+        message: `Happy Birthday, ${props.recipientName}!<br><br>Your friends are all here for a surprise party!<br><br>The Mystery Gift is a cute baby <strong>Mystimon</strong> – your new loyal companion!<br><br>${props.personalMessage}`
+      }
+      giftCompleted = true
+      // Trigger finale after dialogue is closed via closeDialogue
+    } else {
+      currentDialogue.value = {
+        speaker: '🔒 Locked Gift',
+        message: 'You still need to find all the clues from your friends!'
+      }
+    }
+  } else if (npc) {
+    currentDialogue.value = { speaker: npc.name, message: npc.message }
+    if (!npc.talked) {
+      npc.talked = true
+      cluesCollected.value.push(npc.clue)
+    }
+  }
+}
+
+const closeDialogue = () => {
+  dialogueOpen.value = false
+  if (giftCompleted) {
+    setTimeout(() => emit('complete'), 400)
+  }
+}
+
+const attemptMove = (dx, dy) => {
+  const nx = player.tileX + dx
+  const ny = player.tileY + dy
+  if (isWalkable(nx, ny)) {
+    player.tileX = nx
+    player.tileY = ny
+  }
+}
+
+let rafId = null
+
+const gameLoop = () => {
+  if (!dialogueOpen.value) {
+    const now = Date.now()
+    if (now - lastMoveTime > MOVE_DELAY) {
+      if (keys['ArrowRight'] || keys['d'] || keys['D']) { attemptMove(1, 0); lastMoveTime = now }
+      else if (keys['ArrowLeft'] || keys['a'] || keys['A']) { attemptMove(-1, 0); lastMoveTime = now }
+      else if (keys['ArrowUp'] || keys['w'] || keys['W']) { attemptMove(0, -1); lastMoveTime = now }
+      else if (keys['ArrowDown'] || keys['s'] || keys['S']) { attemptMove(0, 1); lastMoveTime = now }
+    }
+    if (keys[' '] || keys['Enter']) {
+      keys[' '] = false
+      keys['Enter'] = false
+      const nearbyNPC = npcs.find(n => isNear(n.tileX, n.tileY))
+      if (nearbyNPC) {
+        showDialogue(nearbyNPC)
+      } else if (isNear(giftPosition.tileX, giftPosition.tileY)) {
+        showDialogue(null, true)
+      }
+    }
+  }
+
+  ctx.clearRect(0, 0, 640, 480)
+  drawMap()
+  drawNPCs()
+  drawPlayer()
+  rafId = requestAnimationFrame(gameLoop)
+}
+
+const onKeyDown = (e) => {
+  keys[e.key] = true
+  // Prevent page scroll with arrow keys when game is focused
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+    e.preventDefault()
+  }
+}
+const onKeyUp = (e) => { keys[e.key] = false }
+
+onMounted(() => {
+  ctx = canvas.value.getContext('2d')
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+  gameLoop()
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keyup', onKeyUp)
+  if (rafId) cancelAnimationFrame(rafId)
+})
+</script>
+
+<style scoped>
+.adventure-wrapper {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+</style>

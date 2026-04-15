@@ -93,22 +93,25 @@ const isUpload = computed(() => props.modelValue.music.type === 'upload')
 }
 
 .step-title {
-  font-size: 1.6rem;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 400;
+  margin-bottom: 12px;
+  color: var(--accent);
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.4);
+  line-height: 1.6;
 }
 
 .step-sub {
   color: var(--text-muted);
   margin-bottom: 24px;
-  line-height: 1.5;
+  line-height: 2;
+  font-size: 0.55rem;
 }
 
 .track-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 24px;
 }
 
@@ -116,24 +119,32 @@ const isUpload = computed(() => props.modelValue.music.type === 'upload')
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 18px;
-  border-radius: var(--radius);
+  padding: 12px 16px;
+  border-radius: 0;
   background: var(--surface);
   color: var(--text);
-  font-size: 1rem;
-  font-weight: 500;
-  border: 2px solid transparent;
+  font-size: 0.5rem;
+  font-weight: 400;
+  font-family: 'Press Start 2P', monospace;
+  border: 2px solid var(--surface-hover);
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
   transition: background 0.15s, border-color 0.15s;
   cursor: pointer;
   text-align: left;
+  line-height: 2;
+  min-height: 44px;
 }
 
 .track-btn:hover { background: var(--surface-hover); }
-.track-btn.active { border-color: var(--accent); background: var(--surface-hover); }
+.track-btn.active {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.4);
+}
 
-.track-icon { font-size: 1.2rem; }
+.track-icon { font-size: 1rem; flex-shrink: 0; }
 .track-label { flex: 1; }
-.track-check { color: var(--accent); font-weight: 700; }
+.track-check { color: var(--accent); font-weight: 400; }
 
 .upload-section {
   display: flex;
@@ -145,7 +156,8 @@ const isUpload = computed(() => props.modelValue.music.type === 'upload')
 
 .upload-label {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.45rem;
+  line-height: 2;
 }
 
 .upload-btn {
@@ -170,8 +182,9 @@ const isUpload = computed(() => props.modelValue.music.type === 'upload')
 
 .upload-error {
   color: #ff6b6b;
-  font-size: 0.85rem;
+  font-size: 0.45rem;
   text-align: center;
+  line-height: 2;
 }
 
 .step-actions {

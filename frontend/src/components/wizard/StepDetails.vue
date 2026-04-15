@@ -34,15 +34,38 @@ const canProceed = computed(() => props.modelValue.name.trim().length > 0)
     </div>
 
     <div class="field">
+      <label>Adventure character name (shown in-game)</label>
+      <input
+        type="text"
+        :value="modelValue.recipientName"
+        @input="update('recipientName', $event.target.value)"
+        placeholder="e.g. Aria"
+        maxlength="40"
+      />
+    </div>
+
+    <div class="field">
       <label>Your message to them</label>
       <textarea
         :value="modelValue.message"
         @input="update('message', $event.target.value)"
         placeholder="e.g. Wishing you the most amazing day! 🎉"
         maxlength="200"
-        rows="4"
+        rows="3"
       />
       <span class="char-count">{{ modelValue.message.length }}/200</span>
+    </div>
+
+    <div class="field">
+      <label>Adventure personal message (shown at the gift reveal)</label>
+      <textarea
+        :value="modelValue.personalMessage"
+        @input="update('personalMessage', $event.target.value)"
+        placeholder="e.g. Hope your day is full of surprises and new adventures!"
+        maxlength="200"
+        rows="3"
+      />
+      <span class="char-count">{{ (modelValue.personalMessage || '').length }}/200</span>
     </div>
 
     <div class="step-actions">
