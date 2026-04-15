@@ -32,7 +32,7 @@ export function buildShareUrl(config) {
 export const DEFAULT_CONFIG = {
   name: '',
   message: '',
-  recipientName: 'Aria',
+  recipientName: '',
   personalMessage: 'Hope your day is full of surprises and new adventures!',
   theme: { preset: 'classic', bg: '#1a1a2e', accent: '#e94560' },
   music: { type: 'bundled', src: 'track1' },

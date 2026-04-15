@@ -17,7 +17,7 @@ defineEmits(['toggle'])
 <style scoped>
 .mute-btn {
   position: fixed;
-  bottom: 20px;
+  top: 20px;
   right: 20px;
   z-index: 100;
   width: 48px;

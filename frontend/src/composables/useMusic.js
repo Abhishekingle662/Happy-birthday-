@@ -92,7 +92,7 @@ function playMelody(trackId) {
   nextStart = scheduleMelody(nextStart)
   nextStart = scheduleMelody(nextStart)
 
-  // Keep scheduling one loop ahead every ~1.5× melody duration
+  // Keep scheduling one loop ahead every melody duration
   loopInterval = setInterval(() => {
     if (!playing.value) return
     nextStart = scheduleMelody(nextStart)
@@ -100,7 +100,7 @@ function playMelody(trackId) {
     oscillators = oscillators.filter(o => {
       try { return o.context && o.context.state !== 'closed' } catch { return false }
     })
-  }, totalDur * 1000 * 1.4)
+  }, totalDur * 1000)
 }
 
 // ── Public API ────────────────────────────────────────────────────────────

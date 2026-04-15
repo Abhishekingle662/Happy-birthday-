@@ -12,7 +12,7 @@ const step = ref(0)
 const config = ref({
   name: '',
   message: '',
-  recipientName: 'Aria',
+  recipientName: '',
   personalMessage: 'Hope your day is full of surprises and new adventures!',
   theme: { preset: 'classic', bg: PRESETS.classic.bg, accent: PRESETS.classic.accent },
   music: { type: 'bundled', src: 'track1' },

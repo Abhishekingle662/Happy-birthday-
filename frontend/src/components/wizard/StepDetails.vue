@@ -39,7 +39,7 @@ const canProceed = computed(() => props.modelValue.name.trim().length > 0)
         type="text"
         :value="modelValue.recipientName"
         @input="update('recipientName', $event.target.value)"
-        placeholder="e.g. Aria"
+        :placeholder="modelValue.name || 'e.g. Aria'"
         maxlength="40"
       />
     </div>

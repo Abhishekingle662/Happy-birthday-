@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { decodeConfig, DEFAULT_CONFIG, PRESETS, isBgDark } from '../utils/config.js'
@@ -9,7 +9,6 @@ import MuteButton from '../components/MuteButton.vue'
 
 const route = useRoute()
 
-// Decode config from reactive route.hash
 const config = computed(() => {
   const hash = route.hash.slice(1)
   if (hash) {
@@ -19,7 +18,6 @@ const config = computed(() => {
   return DEFAULT_CONFIG
 })
 
-// Theme CSS vars — adaptive text colors for light/dark backgrounds
 const themeStyle = computed(() => {
   const t = config.value.theme || PRESETS.classic
   const dark = t.preset ? (PRESETS[t.preset]?.dark ?? true) : isBgDark(t.bg || PRESETS.classic.bg)
@@ -33,18 +31,97 @@ const themeStyle = computed(() => {
   }
 })
 
-// Game state machine: 'adventure' | 'finale'
 const phase = ref('adventure')
-
 const { play, stop, muted, toggleMute, unlockAndPlay } = useMusic()
+const gestureEvents = ['pointerdown', 'touchstart', 'click']
+const gestureListenerOptions = { passive: true, capture: true }
+let hideBrowserUiTimer = null
+
+function isMuteButtonInteraction(event) {
+  const target = event?.target
+  return target instanceof Element && Boolean(target.closest('.mute-btn'))
+}
+
+function requestAppFullscreen() {
+  if (document.fullscreenElement || document.webkitFullscreenElement) return
+
+  const root = document.documentElement
+  const requestFullscreen = root.requestFullscreen || root.webkitRequestFullscreen
+  if (!requestFullscreen) return
+
+  try {
+    const promise = requestFullscreen.call(root)
+    if (promise && typeof promise.catch === 'function') {
+      promise.catch(() => {})
+    }
+  } catch {
+    // Ignore browsers that reject fullscreen outside strict gesture constraints.
+  }
+}
+
+function lockLandscape() {
+  if (screen.orientation && typeof screen.orientation.lock === 'function') {
+    screen.orientation.lock('landscape').catch(() => {})
+  }
+}
+
+function hideBrowserUI() {
+  window.scrollTo(0, 1)
+  if (hideBrowserUiTimer) {
+    clearTimeout(hideBrowserUiTimer)
+  }
+  hideBrowserUiTimer = setTimeout(() => {
+    window.scrollTo(0, 1)
+  }, 80)
+}
+
+function enableImmersiveMode(event) {
+  // Keep mute taps limited to audio behavior; do not force fullscreen from this button.
+  if (isMuteButtonInteraction(event)) {
+    unlockAndPlay()
+    return
+  }
+
+  requestAppFullscreen()
+  lockLandscape()
+  unlockAndPlay()
+  hideBrowserUI()
+}
 
 onMounted(() => {
   play(config.value.music)
-  document.addEventListener('click', unlockAndPlay, { once: true })
-  document.addEventListener('touchstart', unlockAndPlay, { once: true })
+
+  document.documentElement.classList.add('immersive-play')
+  document.body.classList.add('immersive-play')
+
+  gestureEvents.forEach((eventName) => {
+    window.addEventListener(eventName, enableImmersiveMode, gestureListenerOptions)
+  })
+  window.addEventListener('orientationchange', hideBrowserUI)
+  window.addEventListener('resize', hideBrowserUI)
+  document.addEventListener('fullscreenchange', lockLandscape)
+  document.addEventListener('webkitfullscreenchange', lockLandscape)
+
+  hideBrowserUI()
 })
 
 onUnmounted(() => {
+  gestureEvents.forEach((eventName) => {
+    window.removeEventListener(eventName, enableImmersiveMode, gestureListenerOptions)
+  })
+  window.removeEventListener('orientationchange', hideBrowserUI)
+  window.removeEventListener('resize', hideBrowserUI)
+  document.removeEventListener('fullscreenchange', lockLandscape)
+  document.removeEventListener('webkitfullscreenchange', lockLandscape)
+
+  if (hideBrowserUiTimer) {
+    clearTimeout(hideBrowserUiTimer)
+    hideBrowserUiTimer = null
+  }
+
+  document.documentElement.classList.remove('immersive-play')
+  document.body.classList.remove('immersive-play')
+
   stop()
 })
 
@@ -55,11 +132,9 @@ function startFinale() {
 
 <template>
   <div class="play-wrap" :style="themeStyle">
-    <!-- Mute toggle always visible -->
     <MuteButton :muted="muted" @toggle="toggleMute" />
 
     <Transition name="fade" mode="out-in">
-      <!-- Adventure map game -->
       <AdventureMap
         v-if="phase === 'adventure'"
         :recipient-name="config.recipientName || config.name || 'Aria'"
@@ -67,7 +142,6 @@ function startFinale() {
         @complete="startFinale"
       />
 
-      <!-- Finale after adventure complete -->
       <FinaleScene
         v-else-if="phase === 'finale'"
         :name="config.recipientName || config.name || 'Friend'"
@@ -88,6 +162,29 @@ function startFinale() {
   transition: background 0.4s ease;
 }
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
+@media (max-width: 900px) and (hover: none) and (pointer: coarse),
+(max-width: 800px) {
+  @media (orientation: portrait) {
+    .play-wrap {
+      transform: rotate(90deg);
+      transform-origin: left top;
+      width: 100dvh;
+      height: 100vw;
+      position: fixed;
+      top: 0;
+      left: 100vw;
+    }
+  }
+  @media (orientation: landscape) {
+    .play-wrap {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100dvh;
+    }
+  }
+}
+.fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }       
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

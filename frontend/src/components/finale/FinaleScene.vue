@@ -435,4 +435,10 @@ onUnmounted(() => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@media (max-width: 900px) and (hover: none) and (pointer: coarse), 
+(max-width: 800px) {
+  
+  
+}
 </style>
