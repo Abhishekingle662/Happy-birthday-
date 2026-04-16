@@ -25,7 +25,7 @@ export function decodeConfig(hash) {
 
 export function buildShareUrl(config) {
   const encoded = encodeConfig(config)
-  const base = window.location.origin
+  const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, '')
   return `${base}/play#${encoded}`
 }
 
