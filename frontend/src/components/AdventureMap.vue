@@ -94,7 +94,16 @@ function getZone(x: number, y: number) {
 const currentZone = ref('TOWN RESIDENTIAL')
 const showZoneLabel = ref(false)
 
-// --- 3. Clues & NPCs ---
+// --- 3. Clues & NPCs & Items ---
+const inventory = ref<{id: string, name: string}[]>([])
+
+const mapItems = ref([
+  { id: 'shopping_list', tx: 8, ty: 6, name: 'Shopping List', color: '#EEE', symbol: '📝' },
+  { id: 'watering_can', tx: 16, ty: 12, name: 'Watering Can', color: '#88C', symbol: '🚰' },
+  { id: 'coin_pouch', tx: 34, ty: 12, name: 'Coin Pouch', color: '#D4AF37', symbol: '💰' },
+  { id: 'toy_boat', tx: 25, ty: 15, name: 'Toy Boat', color: '#B22222', symbol: '⛵' }
+])
+
 const clues = ref([
   { id: 'mom', text: 'Bloom where the roses grow.', unlocked: false },
   { id: 'gardener', text: 'Where coins jingle and gifts are sold.', unlocked: false },
@@ -124,43 +133,43 @@ function getDynamicHint(myId: string) {
 }
 
 const npcs = [
-  { id: 'mom', x: 5, y: 6, color: '#20B2AA', hair: '#8B4513', name: 'Mom', getDialogue: () => {
+  { id: 'mom', questItem: 'shopping_list', tx: 5, ty: 6, start_tx: 5, start_ty: 6, x: 5*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2000, canMove: true, color: '#20B2AA', hair: '#8B4513', name: 'Mom', getDialogue: () => {
       const unlocked = clues.value.find(c => c.id === 'mom')?.unlocked
       if (unlocked) return [`Happy Birthday again, ${props.recipientName}!`, getDynamicHint('mom')]
-      return [
-        `Happy Birthday, ${props.recipientName}! ðŸŒ¸ The garden's roses hold a secretâ€¦`,
-        getDynamicHint('mom')
-      ]
+      if (inventory.value.find(i => i.id === 'shopping_list')) {
+        return [`Oh, you found my Shopping List! Thank you!`, `Happy Birthday, ${props.recipientName}! 🌸 The garden's roses hold a secret…`, getDynamicHint('mom')]
+      }
+      return [`I wanted to bake a cake for you, but I lost my Shopping List... I think I dropped it somewhere slightly northeast of our house.`]
     }
   },
-  { id: 'gardener', x: 18, y: 11, color: '#6B8E23', hair: '#888', name: 'Gardener', getDialogue: () => {
+  { id: 'gardener', questItem: 'watering_can', tx: 18, ty: 11, start_tx: 18, start_ty: 11, x: 18*32, y: 11*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 3500, canMove: true, color: '#6B8E23', hair: '#888', name: 'Gardener', getDialogue: () => {
       const unlocked = clues.value.find(c => c.id === 'gardener')?.unlocked
       if (unlocked) return [`Enjoy your day, ${props.recipientName}!`, getDynamicHint('gardener')]
-      return [
-        `Hello ${props.recipientName}! Happy birthday! ðŸŒ¿ I hear coins jingle where gifts are sold.`,
-        getDynamicHint('gardener')
-      ]
+      if (inventory.value.find(i => i.id === 'watering_can')) {
+        return [`My Watering Can! Now I can tend the roses.`, `Hello ${props.recipientName}! Happy birthday! 🌿 I hear coins jingle where gifts are sold.`, getDynamicHint('gardener')]
+      }
+      return [`These flowers are so thirsty... I left my Watering Can somewhere in the western grass fields, but I'm too busy to look for it!`]
     }
   },
-  { id: 'merchant', x: 30, y: 12, color: '#FF8C00', hair: '#222', name: 'Merchant', getDialogue: () => {
+  { id: 'merchant', questItem: 'coin_pouch', tx: 30, ty: 12, start_tx: 30, start_ty: 12, x: 30*32, y: 12*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 5000, canMove: true, color: '#FF8C00', hair: '#222', name: 'Merchant', getDialogue: () => {
       const unlocked = clues.value.find(c => c.id === 'merchant')?.unlocked
       if (unlocked) return [`Lots of good deals today!`, getDynamicHint('merchant')]
-      return [
-        `Happy birthday ${props.recipientName}! ðŸ›’ The old fountain holds a secret to the grove.`,
-        getDynamicHint('merchant')
-      ]
+      if (inventory.value.find(i => i.id === 'coin_pouch')) {
+        return [`My Coin Pouch! You're a lifesaver, kid!`, `Happy birthday ${props.recipientName}! 🛒 The old fountain holds a secret to the grove.`, getDynamicHint('merchant')]
+      }
+      return [`Disaster! I can't run my shop today. I dropped my Coin Pouch near the fountain!`]
     }
   },
-  { id: 'kid', x: 34, y: 6, color: '#1E90FF', hair: '#FFD700', name: 'Fountain Kid', getDialogue: () => {
+  { id: 'kid', questItem: 'toy_boat', tx: 34, ty: 6, start_tx: 34, start_ty: 6, x: 34*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2500, canMove: true, color: '#1E90FF', hair: '#FFD700', name: 'Fountain Kid', getDialogue: () => {
       const unlocked = clues.value.find(c => c.id === 'kid')?.unlocked
       if (unlocked) return [`This fountain is awesome!`, getDynamicHint('kid')]
-      return [
-        `Hey ${props.recipientName}, happy birthday! ðŸŒ³ The Hidden Grove is behind the big oak!`,
-        getDynamicHint('kid')
-      ]
+      if (inventory.value.find(i => i.id === 'toy_boat')) {
+        return [`My Toy Boat! Awesome! Let's put it in the water!`, `Hey ${props.recipientName}, happy birthday! 🌳 The Hidden Grove is behind the big oak!`, getDynamicHint('kid')]
+      }
+      return [`I'm so sad... I wanted to float my Toy Boat in the fountain, but I lost it down in the market. 😢`]
     }
   },
-  { id: 'gift', x: 33, y: 2, color: '#FFD700', hair: '#FF0000', name: 'Mystery Gift', getDialogue: () => {
+  { id: 'gift', tx: 33, ty: 2, start_tx: 33, start_ty: 2, x: 33*32, y: 2*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 0, canMove: false, color: '#FFD700', hair: '#FF0000', name: 'Mystery Gift', getDialogue: () => {
       if (unlockedClues.value < 4) {
         return ["ðŸ”’ The gift is still lockedâ€¦ Find all 4 clues from your friends first!"]
       } else {
@@ -184,6 +193,30 @@ let dialogueLines: string[] = []
 let dialogueLineIndex = 0
 let giftTriggered = false
 let dialogueAutoHideTimer: number | null = null
+
+// --- 3.5 Particle System (Confetti) ---
+interface Particle {
+  x: number; y: number; vx: number; vy: number;
+  color: string; life: number; maxLife: number;
+  size: number; rotation: number; dr: number;
+}
+const particles: Particle[] = []
+
+function spawnConfetti(x: number, y: number) {
+  const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFD700', '#FF4500']
+  for (let i = 0; i < 150; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 400,
+      vy: ((Math.random() - 1) * 300) - 100, // Shoot mostly upwards
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 0, maxLife: 2000 + Math.random() * 2000,
+      size: 4 + Math.random() * 6,
+      rotation: Math.random() * Math.PI * 2,
+      dr: (Math.random() - 0.5) * 15
+    })
+  }
+}
 
 function clearDialogueAutoHideTimer() {
   if (dialogueAutoHideTimer !== null) {
@@ -211,11 +244,19 @@ function openDialogue(npc: any) {
 
   if (npc.id !== 'gift' && !clues.value.find(c => c.id === npc.id)?.unlocked) {
     const clue = clues.value.find(c => c.id === npc.id)
-    if (clue) clue.unlocked = true
-    playClue()
+    if (npc.questItem && inventory.value.find(i => i.id === npc.questItem)) {
+      // Remove used item from inventory
+      inventory.value = inventory.value.filter(i => i.id !== npc.questItem)
+      if (clue) clue.unlocked = true
+      playClue()
+    } else {
+      // Doesn't have the quest item
+      playFootstep() // Just a small feedback sound
+    }
   } else if (npc.id === 'gift' && unlockedClues.value === 4) {
     playGift()
     giftTriggered = true
+    spawnConfetti(npc.x * TILE_SIZE + 16, npc.y * TILE_SIZE + 16)
   }
 
   dialogueText.value = dialogueLines[0]
@@ -298,8 +339,32 @@ function triggerAction() {
 function checkInteract() {
   let inx = player.tx + (player.dir === 'left' ? -1 : player.dir === 'right' ? 1 : 0)
   let iny = player.ty + (player.dir === 'up' ? -1 : player.dir === 'down' ? 1 : 0)
+  
+  // Check map items first
+  const itemIndex = mapItems.value.findIndex(item => item.tx === inx && item.ty === iny)
+  if (itemIndex !== -1) {
+    const item = mapItems.value[itemIndex]
+    inventory.value.push(item)
+    mapItems.value.splice(itemIndex, 1)
+    
+    playClue() // Play success sound
+    dialogueSpeaker.value = 'Item Found'
+    dialogueText.value = `You picked up: ${item.name} ${item.symbol}`
+    dialogueLines = [dialogueText.value]
+    dialogueLineIndex = 0
+    dialogueBlocking.value = true
+    dialogueOpen.value = true
+    return
+  }
+
   for (const npc of npcs) {
-    if (npc.x === inx && npc.y === iny) {
+    if (npc.tx === inx && npc.ty === iny) {
+      if (npc.canMove) {
+        if (player.dir === 'left') npc.dir = 'right'
+        else if (player.dir === 'right') npc.dir = 'left'
+        else if (player.dir === 'up') npc.dir = 'down'
+        else if (player.dir === 'down') npc.dir = 'up'
+      }
       openDialogue(npc)
       return
     }
@@ -307,6 +372,21 @@ function checkInteract() {
 }
 
 function update(dt: number) {
+  // Update particles even if dialogue is open
+  const dtSeconds = dt / 1000
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i]
+    p.life += dt
+    if (p.life >= p.maxLife) {
+      particles.splice(i, 1)
+      continue
+    }
+    p.vy += 500 * dtSeconds // Gravity
+    p.x += p.vx * dtSeconds
+    p.y += p.vy * dtSeconds
+    p.rotation += p.dr * dtSeconds
+  }
+
   if (dialogueOpen.value && dialogueBlocking.value) return
 
   if (player.moving) {
@@ -342,8 +422,9 @@ function update(dt: number) {
         const ny = player.ty + dy
         if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS) {
           const tile = mapTiles[ny][nx]
-          const hitNpc = npcs.find(n => n.x === nx && n.y === ny)
-          if (!solidTiles.includes(tile) && !hitNpc) {
+          const hitNpc = npcs.find(n => n.tx === nx && n.ty === ny)
+          const hitItem = mapItems.value.find(i => i.tx === nx && i.ty === ny)
+          if (!solidTiles.includes(tile) && !hitNpc && !hitItem) {
             player.tx = nx
             player.ty = ny
             player.dx = dx
@@ -353,6 +434,62 @@ function update(dt: number) {
             moveDelayTimer = 150
             playFootstep()
           }
+        }
+      }
+    }
+  }
+
+  // Update NPCs
+  for (const npc of npcs) {
+    if (!npc.canMove || (dialogueOpen.value && dialogueSpeaker.value === npc.name)) continue;
+
+    if (npc.moving) {
+      npc.walkTimer += dt
+      const duration = 200 // NPCs walk a little slower than the player
+      const progress = Math.min(npc.walkTimer / duration, 1)
+      npc.x = (npc.tx - npc.dx) * TILE_SIZE + (npc.dx * TILE_SIZE * progress)
+      npc.y = (npc.ty - npc.dy) * TILE_SIZE + (npc.dy * TILE_SIZE * progress)
+
+      if (progress >= 1) {
+        npc.moving = false
+        npc.x = npc.tx * TILE_SIZE
+        npc.y = npc.ty * TILE_SIZE
+        npc.idleTimer = 1000 + Math.random() * 3000
+      }
+    } else {
+      npc.idleTimer -= dt
+      if (npc.idleTimer <= 0) {
+        const dirs: {dx: number, dy: number, dir: string}[] = [
+          { dx: 0, dy: -1, dir: 'up' },
+          { dx: 0, dy: 1, dir: 'down' },
+          { dx: -1, dy: 0, dir: 'left' },
+          { dx: 1, dy: 0, dir: 'right' }
+        ]
+        const move = dirs[Math.floor(Math.random() * dirs.length)]
+        npc.dir = move.dir
+        
+        const nx = npc.tx + move.dx
+        const ny = npc.ty + move.dy
+        
+        if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS) {
+          const tile = mapTiles[ny][nx]
+          const hitPlayer = (nx === player.tx && ny === player.ty)
+          const hitOtherNpc = npcs.find(n => n !== npc && n.tx === nx && n.ty === ny)
+          const hitItem = mapItems.value.find(i => i.tx === nx && i.ty === ny)
+          const inBounds = Math.abs(nx - npc.start_tx) <= 3 && Math.abs(ny - npc.start_ty) <= 3
+          
+          if (!solidTiles.includes(tile) && !hitPlayer && !hitOtherNpc && !hitItem && inBounds) {
+             npc.tx = nx
+             npc.ty = ny
+             npc.dx = move.dx
+             npc.dy = move.dy
+             npc.moving = true
+             npc.walkTimer = 0
+          } else {
+             npc.idleTimer = 500
+          }
+        } else {
+           npc.idleTimer = 500
         }
       }
     }
@@ -401,6 +538,28 @@ function drawGift(t: CanvasRenderingContext2D, x: number, y: number, glow: boole
   t.fillRect(x + 14, y + 8, 4, 24)
   t.fillRect(x + 4, y + 16, 24, 4)
   t.shadowBlur = 0
+}
+
+function drawMapItem(t: CanvasRenderingContext2D, x: number, y: number, name: string, color: string, symbol: string) {
+  const bob = Math.sin(Date.now() / 200) * 2;
+  const px = x + 16
+  const py = y + 16 + bob
+
+  t.fillStyle = color
+  t.beginPath()
+  t.arc(px, py, 8, 0, Math.PI * 2)
+  t.fill()
+  t.strokeStyle = '#fff'
+  t.lineWidth = 1
+  t.stroke()
+  
+  t.fillStyle = '#000'
+  t.font = "12px Arial"
+  t.textAlign = "center"
+  t.textBaseline = "middle"
+  t.fillText(symbol, px, py + 1)
+  t.textAlign = "left"
+  t.textBaseline = "alphabetic"
 }
 
 function render() {
@@ -488,26 +647,53 @@ function render() {
     }
   }
 
+  for (const item of mapItems.value) {
+    drawMapItem(t, item.tx * TILE_SIZE, item.ty * TILE_SIZE, item.name, item.color, item.symbol)
+    
+    // Draw interaction indicator above item if near
+    const dist = Math.abs(item.tx - player.tx) + Math.abs(item.ty - player.ty)
+    if (dist <= 1) {
+      const bob = Math.sin(Date.now() / 150) * 3
+      t.fillStyle = '#fff'
+      t.beginPath()
+      t.arc(item.tx * TILE_SIZE + 16, item.ty * TILE_SIZE - 6 + bob, 6, 0, Math.PI * 2)
+      t.fill()
+      t.fillStyle = '#000'
+      t.font = "12px 'Courier New'"
+      t.fillText("?", item.tx * TILE_SIZE + 13, item.ty * TILE_SIZE - 2 + bob)
+    }
+  }
+
   for (const npc of npcs) {
     if (npc.id === 'gift') {
-      drawGift(t, npc.x * TILE_SIZE, npc.y * TILE_SIZE, unlockedClues.value === 4)
+      drawGift(t, npc.x, npc.y, unlockedClues.value === 4)
     } else {
-      drawSprite(t, npc.x * TILE_SIZE, npc.y * TILE_SIZE, npc.color, npc.hair, 'down', false)
-      const dist = Math.abs(npc.x - player.tx) + Math.abs(npc.y - player.ty)
+      drawSprite(t, npc.x, npc.y, npc.color, npc.hair, npc.dir, npc.moving)
+      const dist = Math.abs(npc.tx - player.tx) + Math.abs(npc.ty - player.ty)
       if (dist <= 2) {
         const bob = Math.sin(Date.now() / 150) * 3
         t.fillStyle = '#fff'
         t.beginPath()
-        t.arc(npc.x * TILE_SIZE + 16, npc.y * TILE_SIZE - 6 + bob, 6, 0, Math.PI * 2)
+        t.arc(npc.x + 16, npc.y - 6 + bob, 6, 0, Math.PI * 2)
         t.fill()
         t.fillStyle = '#000'
         t.font = "12px 'Courier New'"
-        t.fillText("!", npc.x * TILE_SIZE + 13, npc.y * TILE_SIZE - 2 + bob)
+        t.fillText("!", npc.x + 13, npc.y - 2 + bob)
       }
     }
   }
 
   drawSprite(t, player.x, player.y, '#E0507A', '#7030A0', player.dir, player.moving)
+
+  for (const p of particles) {
+    t.save()
+    t.translate(p.x, p.y)
+    t.rotate(p.rotation)
+    t.fillStyle = p.color
+    t.globalAlpha = Math.max(0, 1 - (p.life / p.maxLife))
+    t.fillRect(-p.size / 2, -p.size / 2, p.size, p.size)
+    t.restore()
+  }
 
   t.restore()
 }
@@ -553,6 +739,15 @@ onBeforeUnmount(() => {
       <div class="hud-clues">Clues: {{ unlockedClues }}/4</div>
       <div v-for="c in clues" :key="c.id" class="clue-item" :class="{ locked: !c.unlocked }">
          <span class="bullet" :class="{ check: c.unlocked }"></span> {{ c.unlocked ? c.text : '(locked)' }}
+      </div>
+      
+      <div v-if="inventory.length > 0" class="hud-inventory">
+        <div class="inventory-title">Backpack:</div>
+        <div class="inventory-items">
+          <span v-for="item in inventory" :key="item.id" class="inv-item" :title="item.name">
+            {{ item.symbol }}
+          </span>
+        </div>
       </div>
     </div>
     
@@ -633,6 +828,35 @@ onBeforeUnmount(() => {
   font-weight: bold;
   color: #FFD700;
   margin-bottom: 8px;
+}
+
+.hud-inventory {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dotted rgba(255, 255, 255, 0.4);
+}
+
+.inventory-title {
+  color: #FFA500;
+  font-weight: bold;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+
+.inventory-items {
+  display: flex;
+  gap: 8px;
+}
+
+.inv-item {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .clue-item {
