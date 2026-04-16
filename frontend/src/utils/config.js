@@ -26,7 +26,8 @@ export function decodeConfig(hash) {
 export function buildShareUrl(config) {
   const encoded = encodeConfig(config)
   const base = window.location.origin
-  return `${base}/play#${encoded}`
+  // Use #/play instead of /play since we switched to Hash History mapping to fix Render 404s
+  return `${base}/#/play#${encoded}`
 }
 
 export const DEFAULT_CONFIG = {

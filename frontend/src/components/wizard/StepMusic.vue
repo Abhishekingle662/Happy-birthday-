@@ -9,8 +9,10 @@ const uploading = ref(false)
 const uploadError = ref('')
 
 // In dev, Vite proxies /api → backend. In prod set VITE_BACKEND_URL.
+// Fallback to the production backend URL if Env injection fails
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL 
   || (import.meta.env.VITE_BACKEND_HOST ? `https://${import.meta.env.VITE_BACKEND_HOST}` : '')
+  || 'https://happy-birthday-cevh.onrender.com'
 
 function selectTrack(id) {
   emit('update:modelValue', {
