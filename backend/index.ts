@@ -8,7 +8,7 @@ import { mkdirSync, existsSync } from 'fs'
 const app = new Hono()
 const PORT = Number(process.env.PORT) || 3001
 const UPLOAD_DIR = join(import.meta.dir, 'uploads')
-const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`
+const BASE_URL = process.env.RENDER_EXTERNAL_URL || process.env.BASE_URL || `http://localhost:${PORT}`
 
 if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
 
