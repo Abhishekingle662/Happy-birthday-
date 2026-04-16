@@ -21,9 +21,8 @@ services:
         source: /*
         destination: /index.html
     envVars:
-      - key: VITE_BACKEND_URL
+      - key: VITE_BACKEND_HOST
         fromService:
           type: web
           name: birthday-backend
-          # 'url' injects the full URL (e.g. https://birthday-backend.onrender.com)
-          property: url
+          property: host

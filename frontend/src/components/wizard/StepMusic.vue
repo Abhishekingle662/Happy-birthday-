@@ -9,7 +9,8 @@ const uploading = ref(false)
 const uploadError = ref('')
 
 // In dev, Vite proxies /api → backend. In prod set VITE_BACKEND_URL.
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || ''
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL 
+  || (import.meta.env.VITE_BACKEND_HOST ? `https://${import.meta.env.VITE_BACKEND_HOST}` : '')
 
 function selectTrack(id) {
   emit('update:modelValue', {
