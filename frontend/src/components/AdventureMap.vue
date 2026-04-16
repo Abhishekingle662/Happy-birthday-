@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 
 const props = defineProps({
   recipientName: { type: String, default: 'Aria' },
@@ -37,45 +37,85 @@ function playGift() {
   setTimeout(() => playSFX(783.99, 0.3, 'square'), 200)
 }
 
-// --- 2. Map & Zones ---
-// Legend: 0:Grass, 1:Path, 2:Tree, 3:HouseWall, 4:HouseRoof, 5:Water, 6:Fence, 7:Flower, 8:Market, 9:Gift
-const mapTiles = [
-  "2222222222222222222222222222222222222222",
-  "2000000022200000000000020000000000000002",
-  "2000000022200000000000020000000009000002",
-  "2022222022200000000000020000000000000002",
-  "2044446022200000002222220000000000000002",
-  "2033336022222022222222221111110000000002",
-  "2033336000000000000000000000010000000002",
-  "2011111111111111111111111111112222200002",
-  "2010000000000000000000100000002000000002",
-  "2010000000000000000000100000002000888002",
-  "2010000007770000770000100000002000888002",
-  "2010000007770000770000100000002000111002",
-  "2010000000000000000000111111111111111002",
-  "2010000000000000000000100000002000000002",
-  "2010222000000000000000100000002000000002",
-  "2010222005555555550000100000002000000002",
-  "2010222005555555550000100000002222222222",
-  "2010000000002200000000100000000000000002",
-  "2010000000002200000000100000000000000002",
-  "2011111111111111111111100000000000000002",
-  "2000000000000000000000000000000000000002",
-  "2000000000000000000000000000000000000002",
-  "2000000000000000000000002222222222222222",
-  "2222222222000000222222222222222222222222",
-  "2222222222222222222222222222222222222222",
-  "2222222222222222222222222222222222222222",
-  "2222222222222222222222222222222222222222",
-  "2222222222222222222222222222222222222222",
-  "2222222222222222222222222222222222222222",
-  "2222222222222222222222222222222222222222"
-]
-const TILE_SIZE = 32
-const COLS = 40
-const ROWS = 30
+// --- 2. Maps & Levels ---
+// Legend: 0:Grass, 1:Path, 2:Tree, 3:HouseWall, 4:HouseRoof, 5:Water, 6:Fence, 7:Flower, 8:Market, 9:Gift, H:IndoorFloor, R:Rug
+const LEVELS = {
+  town: {
+    id: 'town',
+    cols: 40,
+    rows: 30,
+    tiles: [
+      "2222222222222222222222222222222222222222",
+      "2000000022200000000000020000000000000002",
+      "2000000022200000000000020000000009000002",
+      "2022222022200000000000020000000000000002",
+      "2044446022200000002222220000000000000002",
+      "2033336022222022222222221111110000000002",
+      "2033336000000000000000000000010000000002",
+      "2011111111111111111111111111112222200002",
+      "2010000000000000000000100000002000000002",
+      "2010000000000000000000100000002000888002",
+      "2010000007770000770000100000002000888002",
+      "2010000007770000770000100000002000111002",
+      "2010000000000000000000111111111111111002",
+      "2010000000000000000000100000002000000002",
+      "2010222000000000000000100000002000000002",
+      "2010222005555555550000100000002000000002",
+      "2010222005555555550000100000002222222222",
+      "2010000000002200000000100000000000000002",
+      "2010000000002200000000100000000000000002",
+      "2011111111111111111111100000000000000002",
+      "2000000000000000000000000000000000000002",
+      "2000000000000000000000000000000000000002",
+      "2000000000000000000000002222222222222222",
+      "2222222222000000222222222222222222222222",
+      "2222222222222222222222222222222222222222",
+      "2222222222222222222222222222222222222222",
+      "2222222222222222222222222222222222222222",
+      "2222222222222222222222222222222222222222",
+      "2222222222222222222222222222222222222222",
+      "2222222222222222222222222222222222222222"
+    ],
+    solidTiles: ['2', '3', '5', '6'],
+    warps: [
+      { tx: 4, ty: 7, targetLevel: 'house', targetX: 7, targetY: 9, dir: 'up' } // Enter house
+    ]
+  },
+  house: {
+    id: 'house',
+    cols: 15,
+    rows: 12,
+    tiles: [
+      "444444444444444",
+      "4222HHHHHHH2224",
+      "4222HHHHHHH2224",
+      "4HHHHHHHHHHHHH4",
+      "4HHHHHHHHHHHHH4",
+      "4HHHHHHHHHHHHH4",
+      "4HHHHHHHHHHHHH4",
+      "433HHHHHHHHH334",
+      "443HHHHHHHHH344",
+      "4444444RR444444",
+      "4444444RR444444",
+      "444444444444444"
+    ],
+    solidTiles: ['4', '2', '3'],
+    warps: [
+      { tx: 7, ty: 10, targetLevel: 'town', targetX: 4, targetY: 8, dir: 'down' }, // Exit to Town
+      { tx: 8, ty: 10, targetLevel: 'town', targetX: 4, targetY: 8, dir: 'down' }
+    ]
+  }
+}
 
-const solidTiles = ['2', '3', '5', '6']
+const currentLevelId = ref<'town'|'house'>('house')
+const isGameLoaded = ref(false)
+
+const mapTiles = computed(() => LEVELS[currentLevelId.value].tiles)
+const solidTiles = computed(() => LEVELS[currentLevelId.value].solidTiles)
+const COLS = computed(() => LEVELS[currentLevelId.value].cols)
+const ROWS = computed(() => LEVELS[currentLevelId.value].rows)
+const warps = computed(() => LEVELS[currentLevelId.value].warps || [])
+const TILE_SIZE = 32
 
 const zones = [
   { name: 'HOME', x: 0, y: 0, w: 15, h: 10 },
@@ -85,24 +125,32 @@ const zones = [
 ]
 
 function getZone(x: number, y: number) {
+  if (currentLevelId.value === 'house') return `${props.recipientName.toUpperCase()}'S BEDROOM`
   for (const z of zones) {
     if (x >= z.x && x < z.x + z.w && y >= z.y && y < z.y + z.h) return z.name
   }
   return 'TOWN RESIDENTIAL'
 }
 
-const currentZone = ref('TOWN RESIDENTIAL')
-const showZoneLabel = ref(false)
+const currentZone = ref(`${props.recipientName.toUpperCase()}'S BEDROOM`)
+const showZoneLabel = ref(true)
+setTimeout(() => showZoneLabel.value = false, 3000)
 
 // --- 3. Clues & NPCs & Items ---
 const inventory = ref<{id: string, name: string}[]>([])
 
-const mapItems = ref([
-  { id: 'shopping_list', tx: 8, ty: 6, name: 'Shopping List', color: '#EEE', symbol: '📝' },
-  { id: 'watering_can', tx: 16, ty: 12, name: 'Watering Can', color: '#88C', symbol: '🚰' },
-  { id: 'coin_pouch', tx: 34, ty: 12, name: 'Coin Pouch', color: '#D4AF37', symbol: '💰' },
-  { id: 'toy_boat', tx: 25, ty: 15, name: 'Toy Boat', color: '#B22222', symbol: '⛵' }
-])
+// Make items and npcs bound directly to their level
+const itemsDatabase = ref({
+  town: [
+    { id: 'shopping_list', tx: 8, ty: 6, name: 'Shopping List', color: '#EEE', symbol: '📝' },
+    { id: 'watering_can', tx: 16, ty: 12, name: 'Watering Can', color: '#88C', symbol: '🚰' },
+    { id: 'coin_pouch', tx: 34, ty: 12, name: 'Coin Pouch', color: '#D4AF37', symbol: '💰' }
+  ],
+  house: [
+    { id: 'toy_boat', tx: 4, ty: 5, name: 'Toy Boat', color: '#B22222', symbol: '⛵' }
+  ]
+})
+const mapItems = computed(() => itemsDatabase.value[currentLevelId.value])
 
 const clues = ref([
   { id: 'mom', text: 'Bloom where the roses grow.', unlocked: false },
@@ -132,58 +180,63 @@ function getDynamicHint(myId: string) {
   return `Maybe try talking to ${npcHints[target.id]} next!`
 }
 
-const npcs = [
-  { id: 'mom', questItem: 'shopping_list', tx: 5, ty: 6, start_tx: 5, start_ty: 6, x: 5*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2000, canMove: true, color: '#20B2AA', hair: '#8B4513', name: 'Mom', getDialogue: () => {
-      const unlocked = clues.value.find(c => c.id === 'mom')?.unlocked
-      if (unlocked) return [`Happy Birthday again, ${props.recipientName}!`, getDynamicHint('mom')]
-      if (inventory.value.find(i => i.id === 'shopping_list')) {
-        return [`Oh, you found my Shopping List! Thank you!`, `Happy Birthday, ${props.recipientName}! 🌸 The garden's roses hold a secret…`, getDynamicHint('mom')]
+const npcsDatabase: Record<string, any[]> = {
+  town: [
+    { id: 'mom', questItem: 'shopping_list', tx: 5, ty: 6, start_tx: 5, start_ty: 6, x: 5*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2000, canMove: true, color: '#20B2AA', hair: '#8B4513', name: 'Mom', getDialogue: () => {
+        const unlocked = clues.value.find(c => c.id === 'mom')?.unlocked
+        if (unlocked) return [`Happy Birthday again, ${props.recipientName}!`, getDynamicHint('mom')]
+        if (inventory.value.find(i => i.id === 'shopping_list')) {
+          return [`Oh, you found my Shopping List! Thank you!`, `Happy Birthday, ${props.recipientName}! 🌸 The garden's roses hold a secret…`, getDynamicHint('mom')]
+        }
+        return [`I wanted to bake a cake for you, but I lost my Shopping List... I think I dropped it somewhere slightly northeast of our house.`]
       }
-      return [`I wanted to bake a cake for you, but I lost my Shopping List... I think I dropped it somewhere slightly northeast of our house.`]
-    }
-  },
-  { id: 'gardener', questItem: 'watering_can', tx: 18, ty: 11, start_tx: 18, start_ty: 11, x: 18*32, y: 11*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 3500, canMove: true, color: '#6B8E23', hair: '#888', name: 'Gardener', getDialogue: () => {
-      const unlocked = clues.value.find(c => c.id === 'gardener')?.unlocked
-      if (unlocked) return [`Enjoy your day, ${props.recipientName}!`, getDynamicHint('gardener')]
-      if (inventory.value.find(i => i.id === 'watering_can')) {
-        return [`My Watering Can! Now I can tend the roses.`, `Hello ${props.recipientName}! Happy birthday! 🌿 I hear coins jingle where gifts are sold.`, getDynamicHint('gardener')]
+    },
+    { id: 'gardener', questItem: 'watering_can', tx: 18, ty: 11, start_tx: 18, start_ty: 11, x: 18*32, y: 11*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 3500, canMove: true, color: '#6B8E23', hair: '#888', name: 'Gardener', getDialogue: () => {
+        const unlocked = clues.value.find(c => c.id === 'gardener')?.unlocked
+        if (unlocked) return [`Enjoy your day, ${props.recipientName}!`, getDynamicHint('gardener')]
+        if (inventory.value.find(i => i.id === 'watering_can')) {
+          return [`My Watering Can! Now I can tend the roses.`, `Hello ${props.recipientName}! Happy birthday! 🌿 I hear coins jingle where gifts are sold.`, getDynamicHint('gardener')]
+        }
+        return [`These flowers are so thirsty... I left my Watering Can somewhere in the western grass fields, but I'm too busy to look for it!`]
       }
-      return [`These flowers are so thirsty... I left my Watering Can somewhere in the western grass fields, but I'm too busy to look for it!`]
-    }
-  },
-  { id: 'merchant', questItem: 'coin_pouch', tx: 30, ty: 12, start_tx: 30, start_ty: 12, x: 30*32, y: 12*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 5000, canMove: true, color: '#FF8C00', hair: '#222', name: 'Merchant', getDialogue: () => {
-      const unlocked = clues.value.find(c => c.id === 'merchant')?.unlocked
-      if (unlocked) return [`Lots of good deals today!`, getDynamicHint('merchant')]
-      if (inventory.value.find(i => i.id === 'coin_pouch')) {
-        return [`My Coin Pouch! You're a lifesaver, kid!`, `Happy birthday ${props.recipientName}! 🛒 The old fountain holds a secret to the grove.`, getDynamicHint('merchant')]
+    },
+    { id: 'merchant', questItem: 'coin_pouch', tx: 30, ty: 12, start_tx: 30, start_ty: 12, x: 30*32, y: 12*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 5000, canMove: true, color: '#FF8C00', hair: '#222', name: 'Merchant', getDialogue: () => {
+        const unlocked = clues.value.find(c => c.id === 'merchant')?.unlocked
+        if (unlocked) return [`Have a great day, ${props.recipientName}!`, getDynamicHint('merchant')]
+        if (inventory.value.find(i => i.id === 'coin_pouch')) {
+          return [`My Coin Pouch! Bless you kind soul.`, `Hey ${props.recipientName}! 💰 They say a secret fountain holds the path to the grove.`, getDynamicHint('merchant')]
+        }
+        return [`Business is ruined! Someone stole my Coin Pouch and dropped it somewhere directly east of here!`]
       }
-      return [`Disaster! I can't run my shop today. I dropped my Coin Pouch near the fountain!`]
-    }
-  },
-  { id: 'kid', questItem: 'toy_boat', tx: 34, ty: 6, start_tx: 34, start_ty: 6, x: 34*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2500, canMove: true, color: '#1E90FF', hair: '#FFD700', name: 'Fountain Kid', getDialogue: () => {
-      const unlocked = clues.value.find(c => c.id === 'kid')?.unlocked
-      if (unlocked) return [`This fountain is awesome!`, getDynamicHint('kid')]
-      if (inventory.value.find(i => i.id === 'toy_boat')) {
-        return [`My Toy Boat! Awesome! Let's put it in the water!`, `Hey ${props.recipientName}, happy birthday! 🌳 The Hidden Grove is behind the big oak!`, getDynamicHint('kid')]
+    },
+    { id: 'kid', questItem: 'toy_boat', tx: 25, ty: 6, start_tx: 25, start_ty: 6, x: 25*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2500, canMove: true, color: '#DC143C', hair: '#FFD700', name: 'Kid', getDialogue: () => {
+        const unlocked = clues.value.find(c => c.id === 'kid')?.unlocked
+        if (unlocked) return [`Wow, I love playing at the fountain!`, getDynamicHint('kid')]
+        if (inventory.value.find(i => i.id === 'toy_boat')) {
+          return [`My Toy Boat! You found it!`, `Yay! 🌊 Look behind the ancient oak tree in the north garden...`, getDynamicHint('kid')]
+        }
+        return [`*Sniff* I dropped my Toy Boat somewhere in the southern marketplace... Now I can't play at the fountain...`]
       }
-      return [`I'm so sad... I wanted to float my Toy Boat in the fountain, but I lost it down in the market. 😢`]
-    }
-  },
-  { id: 'gift', tx: 33, ty: 2, start_tx: 33, start_ty: 2, x: 33*32, y: 2*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 0, canMove: false, color: '#FFD700', hair: '#FF0000', name: 'Mystery Gift', getDialogue: () => {
-      if (unlockedClues.value < 4) {
-        return ["ðŸ”’ The gift is still lockedâ€¦ Find all 4 clues from your friends first!"]
-      } else {
-        return [
-          "ðŸŽ‰ MYSTERY GIFT! ðŸŽ‰",
-          `Happy Birthday, ${props.recipientName}!`,
-          "Your friends are all here for a surprise party!",
-          "Your Mystery Gift is a cute baby Mystimon â€” your new loyal companion! ðŸ¾",
-          props.personalMessage
-        ]
+    },
+    { id: 'gift', tx: 31, ty: 2, start_tx: 31, start_ty: 2, x: 31*32, y: 2*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: Infinity, canMove: false, color: '#FFD700', hair: '#FF4500', name: 'Mystery Gift', getDialogue: () => {
+        if (unlockedClues.value < 4) {
+          return [`The box is locked magic. (Find ${4 - unlockedClues.value} more clue(s) hidden with the townsfolk!)`]
+        } else {
+          return [
+            "🎉 MYSTERY GIFT! 🎉",
+            `Happy Birthday, ${props.recipientName}!`,
+            "Your friends are all here for a surprise party!",
+            "Your Mystery Gift is a cute baby Mystimon — your new loyal companion! 🐾",
+            props.personalMessage
+          ]
+        }
       }
     }
-  }
-]
+  ],
+  house: []
+}
+
+const npcs = computed(() => npcsDatabase[currentLevelId.value] || [])
 
 const dialogueOpen = ref(false)
 const dialogueText = ref('')
@@ -341,8 +394,8 @@ function checkInteract() {
   let iny = player.ty + (player.dir === 'up' ? -1 : player.dir === 'down' ? 1 : 0)
   
   // Check map items first
-  const itemIndex = mapItems.value.findIndex(item => item.tx === inx && item.ty === iny)
-  if (itemIndex !== -1) {
+  const itemIndex = mapItems.value?.findIndex(item => item.tx === inx && item.ty === iny)
+  if (itemIndex !== undefined && itemIndex !== -1) {
     const item = mapItems.value[itemIndex]
     inventory.value.push(item)
     mapItems.value.splice(itemIndex, 1)
@@ -357,7 +410,7 @@ function checkInteract() {
     return
   }
 
-  for (const npc of npcs) {
+  for (const npc of npcs.value) {
     if (npc.tx === inx && npc.ty === iny) {
       if (npc.canMove) {
         if (player.dir === 'left') npc.dir = 'right'
@@ -400,6 +453,17 @@ function update(dt: number) {
       player.moving = false
       player.x = player.tx * TILE_SIZE
       player.y = player.ty * TILE_SIZE
+
+      const warp = warps.value.find(w => w.tx === player.tx && w.ty === player.ty)
+      if (warp) {
+        currentLevelId.value = warp.targetLevel
+        player.tx = warp.targetX
+        player.ty = warp.targetY
+        player.x = player.tx * TILE_SIZE
+        player.y = player.ty * TILE_SIZE
+        if (warp.dir) player.dir = warp.dir
+      }
+
       const nZone = getZone(player.tx, player.ty)
       if (nZone !== currentZone.value) {
         currentZone.value = nZone
@@ -420,11 +484,11 @@ function update(dt: number) {
         player.dir = dir
         const nx = player.tx + dx
         const ny = player.ty + dy
-        if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS) {
-          const tile = mapTiles[ny][nx]
-          const hitNpc = npcs.find(n => n.tx === nx && n.ty === ny)
+        if (nx >= 0 && nx < COLS.value && ny >= 0 && ny < ROWS.value) {
+          const tile = mapTiles.value[ny][nx]
+          const hitNpc = npcs.value.find(n => n.tx === nx && n.ty === ny)
           const hitItem = mapItems.value.find(i => i.tx === nx && i.ty === ny)
-          if (!solidTiles.includes(tile) && !hitNpc && !hitItem) {
+          if (!solidTiles.value.includes(tile) && !hitNpc && !hitItem) {
             player.tx = nx
             player.ty = ny
             player.dx = dx
@@ -440,7 +504,7 @@ function update(dt: number) {
   }
 
   // Update NPCs
-  for (const npc of npcs) {
+  for (const npc of npcs.value) {
     if (!npc.canMove || (dialogueOpen.value && dialogueSpeaker.value === npc.name)) continue;
 
     if (npc.moving) {
@@ -471,14 +535,14 @@ function update(dt: number) {
         const nx = npc.tx + move.dx
         const ny = npc.ty + move.dy
         
-        if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS) {
-          const tile = mapTiles[ny][nx]
+        if (nx >= 0 && nx < COLS.value && ny >= 0 && ny < ROWS.value) {
+          const tile = mapTiles.value[ny][nx]
           const hitPlayer = (nx === player.tx && ny === player.ty)
-          const hitOtherNpc = npcs.find(n => n !== npc && n.tx === nx && n.ty === ny)
+          const hitOtherNpc = npcs.value.find(n => n !== npc && n.tx === nx && n.ty === ny)
           const hitItem = mapItems.value.find(i => i.tx === nx && i.ty === ny)
           const inBounds = Math.abs(nx - npc.start_tx) <= 3 && Math.abs(ny - npc.start_ty) <= 3
           
-          if (!solidTiles.includes(tile) && !hitPlayer && !hitOtherNpc && !hitItem && inBounds) {
+          if (!solidTiles.value.includes(tile) && !hitPlayer && !hitOtherNpc && !hitItem && inBounds) {
              npc.tx = nx
              npc.ty = ny
              npc.dx = move.dx
@@ -568,8 +632,8 @@ function render() {
 
   let camX = player.x - canvas.value.width / 2 + TILE_SIZE / 2
   let camY = player.y - canvas.value.height / 2 + TILE_SIZE / 2
-  camX = Math.max(0, Math.min(camX, COLS * TILE_SIZE - canvas.value.width))
-  camY = Math.max(0, Math.min(camY, ROWS * TILE_SIZE - canvas.value.height))
+  camX = Math.max(0, Math.min(camX, COLS.value * TILE_SIZE - canvas.value.width))
+  camY = Math.max(0, Math.min(camY, ROWS.value * TILE_SIZE - canvas.value.height))
 
   t.fillStyle = '#000'
   t.fillRect(0, 0, canvas.value.width, canvas.value.height)
@@ -577,26 +641,31 @@ function render() {
   t.translate(-Math.floor(camX), -Math.floor(camY))
 
   const startC = Math.max(0, Math.floor(camX / TILE_SIZE))
-  const endC = Math.min(COLS, Math.ceil((camX + canvas.value.width) / TILE_SIZE))
+  const endC = Math.min(COLS.value, Math.ceil((camX + canvas.value.width) / TILE_SIZE))
   const startR = Math.max(0, Math.floor(camY / TILE_SIZE))
-  const endR = Math.min(ROWS, Math.ceil((camY + canvas.value.height) / TILE_SIZE))
+  const endR = Math.min(ROWS.value, Math.ceil((camY + canvas.value.height) / TILE_SIZE))
 
   for (let r = startR; r < endR; r++) {
     for (let c = startC; c < endC; c++) {
-      const tile = mapTiles[r][c]
+      const tile = mapTiles.value[r][c]
       const px = c * TILE_SIZE
       const py = r * TILE_SIZE
       
-      t.fillStyle = (c+r)%2===0 ? '#5a8a34' : '#4e7a2c'
-      t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+      if (currentLevelId.value === 'town') {
+        t.fillStyle = (c+r)%2===0 ? '#5a8a34' : '#4e7a2c'
+        t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+      } else { // house floor
+         t.fillStyle = (c+r)%2===0 ? '#5c4033' : '#6f4f3e'
+         t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+      }
 
-      if (tile === '1') {
+      if (tile === '1') { // Path
         t.fillStyle = '#c8a86e'
         t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
         t.strokeStyle = '#b89658'
         t.lineWidth = 1
         t.strokeRect(px, py, TILE_SIZE, TILE_SIZE)
-      } else if (tile === '2') {
+      } else if (tile === '2') { // Tree
         t.fillStyle = '#5a3010'
         t.fillRect(px + 12, py + 16, 8, 16)
         t.fillStyle = '#2d6e1a'
@@ -607,47 +676,57 @@ function render() {
         t.beginPath()
         t.arc(px + 10, py + 8, 8, 0, Math.PI * 2)
         t.fill()
-      } else if (tile === '3') {
+      } else if (tile === '3') { // House Wall
         t.fillStyle = '#b84a2e'
         t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
         t.fillStyle = '#a03a20'
         t.fillRect(px, py + 15, TILE_SIZE, 2)
         t.fillStyle = '#d4a060'
         t.fillRect(px + 8, py + 8, 16, 16)
-      } else if (tile === '4') {
+      } else if (tile === '4') { // House Roof
         t.fillStyle = '#555566'
         t.beginPath()
         t.moveTo(px + 16, py)
         t.lineTo(px + TILE_SIZE, py + TILE_SIZE)
         t.lineTo(px, py + TILE_SIZE)
         t.fill()
-      } else if (tile === '5') {
+      } else if (tile === '5') { // Water
         const wave = Math.sin(Date.now() / 300 + px) * 2
         t.fillStyle = '#3a8ac8'
         t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
         t.fillStyle = '#5aaae8'
         t.fillRect(px + 4, py + 8 + wave, 24, 4)
-      } else if (tile === '6') {
+      } else if (tile === '6') { // Fence
         t.fillStyle = '#8a5a30'
         t.fillRect(px + 12, py + 4, 8, 24)
         t.fillRect(px, py + 12, 32, 6)
-      } else if (tile === '7') {
+      } else if (tile === '7') { // Flower
         t.fillStyle = '#5a8a34'
         t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
         t.fillStyle = '#ff69b4'
         t.fillRect(px + 6, py + 6, 4, 4)
         t.fillStyle = '#ffd700'
         t.fillRect(px + 20, py + 18, 4, 4)
-      } else if (tile === '8') {
+      } else if (tile === '8') { // Market
         t.fillStyle = '#f0c030'
         t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
         t.strokeStyle = '#333'
         t.strokeRect(px + 2, py + 2, 28, 28)
+      } else if (tile === 'H') { // Indoor Floor
+        t.fillStyle = '#8B5A2B'
+        t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+        t.strokeStyle = '#5E3A19'
+        t.strokeRect(px, py, TILE_SIZE, TILE_SIZE)
+      } else if (tile === 'R') { // Rug
+        t.fillStyle = '#CD5C5C'
+        t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+        t.fillStyle = '#F08080'
+        t.fillRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8)
       }
     }
   }
 
-  for (const item of mapItems.value) {
+  for (const item of mapItems.value || []) {
     drawMapItem(t, item.tx * TILE_SIZE, item.ty * TILE_SIZE, item.name, item.color, item.symbol)
     
     // Draw interaction indicator above item if near
@@ -664,7 +743,7 @@ function render() {
     }
   }
 
-  for (const npc of npcs) {
+  for (const npc of npcs.value) {
     if (npc.id === 'gift') {
       drawGift(t, npc.x, npc.y, unlockedClues.value === 4)
     } else {
@@ -717,6 +796,11 @@ onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
   raf = requestAnimationFrame(loop)
+  
+  // Simulate loading delay for assets
+  setTimeout(() => {
+    isGameLoaded.value = true
+  }, 1500)
 })
 
 onBeforeUnmount(() => {
@@ -732,8 +816,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="adventure-wrapper">
-    <div class="controls-hint">â–²â–¼â—€â–¶ or WASD Â· SPACE/Enter to talk</div>
-    <canvas ref="canvas" class="game-canvas"></canvas>
+    <div v-if="!isGameLoaded" class="loading-screen">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading Adventure...</div>
+    </div>
+
+    <div class="controls-hint">▲▼◀▶ or WASD · SPACE/Enter to talk</div>
+    <canvas ref="canvas" class="game-canvas" :class="{ hidden: !isGameLoaded }"></canvas>
     
     <div class="hud">
       <div class="hud-clues">Clues: {{ unlockedClues }}/4</div>
@@ -798,6 +887,52 @@ onBeforeUnmount(() => {
   display: block;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  transition: opacity 0.5s ease-in-out;
+}
+.game-canvas.hidden {
+  opacity: 0;
+}
+
+.loading-screen {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: #1a1a24;
+  z-index: 100;
+  color: #FFD700;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 6px solid #FFD700;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes rotation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .controls-hint {
