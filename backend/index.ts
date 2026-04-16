@@ -17,6 +17,7 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'OPTIONS'],
 }))
 
+app.get('/', (c) => c.text('Birthday Backend is running!'))
 app.get('/health', (c) => c.json({ ok: true }))
 
 app.post('/api/music', async (c) => {
