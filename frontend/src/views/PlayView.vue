@@ -33,7 +33,7 @@ const themeStyle = computed(() => {
 })
 
 const phase = ref('adventure')
-const { play, stop, muted, toggleMute, unlockAndPlay } = useMusic()
+const { play, stop, muted, toggleMute, unlockAndPlay, playFinalePortuguese } = useMusic()
 const gestureEvents = ['pointerdown', 'touchstart', 'click']
 const gestureListenerOptions = { passive: true, capture: true }
 let hideBrowserUiTimer = null
@@ -127,6 +127,7 @@ onUnmounted(() => {
 })
 
 function startFinale() {
+  playFinalePortuguese()
   phase.value = 'finale'
 }
 
@@ -166,29 +167,22 @@ function exitGame() {
   position: relative;
   overflow: hidden;
   transition: background 0.4s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 900px) and (hover: none) and (pointer: coarse),
 (max-width: 800px) {
-  @media (orientation: portrait) {
-    .play-wrap {
-      transform: rotate(90deg);
-      transform-origin: left top;
-      width: 100dvh;
-      height: 100vw;
-      position: fixed;
-      top: 0;
-      left: 100vw;
-    }
-  }
-  @media (orientation: landscape) {
-    .play-wrap {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100dvh;
-    }
+  .play-wrap {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-left: max(8px, env(safe-area-inset-left));
   }
 }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }       

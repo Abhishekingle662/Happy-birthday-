@@ -104,8 +104,8 @@ const LEVELS = {
     ],
     solidTiles: ['4', '2', '3'],
     warps: [
-      { tx: 7, ty: 10, targetLevel: 'town', targetX: 4, targetY: 8, dir: 'down' }, // Exit to Town
-      { tx: 8, ty: 10, targetLevel: 'town', targetX: 4, targetY: 8, dir: 'down' }
+      { tx: 7, ty: 10, targetLevel: 'town', targetX: 4, targetY: 8, dir: 'down', requires: 'outfitReady' }, // Exit to Town
+      { tx: 8, ty: 10, targetLevel: 'town', targetX: 4, targetY: 8, dir: 'down', requires: 'outfitReady' }
     ]
   },
   sky: {
@@ -182,6 +182,7 @@ const TOWN_GATE_QUEST_IDS = ['mom', 'gardener', 'merchant', 'kid']
 const puzzleState = ref({
   townGateUnlocked: false,
   skyExitUnlocked: false,
+  outfitReady: false,
   englishQuizPassed: false,
   englishQuizStep: 0,
   windsFound: {
@@ -190,6 +191,29 @@ const puzzleState = ref({
     west: false
   },
   windPathRevealed: false
+})
+
+const makeupOptions = [
+  { id: 'soft', label: 'Soft Glow', blush: '#f7b2c6', lip: '#d96a8a', eye: '#5b3355', sparkle: '#ffd6e5' },
+  { id: 'rose', label: 'Rosy Shine', blush: '#f59dbb', lip: '#c73f6f', eye: '#52203f', sparkle: '#ffbfd2' },
+  { id: 'sparkle', label: 'Sparkle Pink', blush: '#ffd0e0', lip: '#ff5c95', eye: '#6a2a62', sparkle: '#fff1f6' }
+]
+
+const dressOptions = [
+  { id: 'rose', label: 'Rose Birthday Dress', dress: '#ff7fa7', trim: '#fff0f5', bow: '#ff4f88', shoes: '#c93b66' },
+  { id: 'sky', label: 'Sky Ribbon Dress', dress: '#7eb8ff', trim: '#eff7ff', bow: '#4b88ff', shoes: '#3d6fcc' },
+  { id: 'lavender', label: 'Lavender Twirl Dress', dress: '#c89bff', trim: '#f8efff', bow: '#8e62ff', shoes: '#6d45d1' }
+]
+
+const selectedMakeupId = ref('')
+const selectedDressId = ref('')
+const wardrobeOpen = ref(false)
+const wardrobeStep = ref<'makeup' | 'dress'>('makeup')
+
+const playerAppearance = computed(() => {
+  const makeup = makeupOptions.find(option => option.id === selectedMakeupId.value) || makeupOptions[0]
+  const dress = dressOptions.find(option => option.id === selectedDressId.value) || dressOptions[0]
+  return { makeup, dress }
 })
 
 const COMBO_RECIPES = [
@@ -240,7 +264,9 @@ const interactablesDatabase = ref({
     { id: 'sky_gate_pillar', tx: 24, ty: 19, type: 'sky_gate', symbol: '⛩️' },
     { id: 'sky_gate_sign', tx: 22, ty: 19, type: 'sign', symbol: '🪧', short: 'GATE', title: 'Signboard', lines: ['SKY GATE', 'Complete town quests first.'] }
   ],
-  house: [],
+  house: [
+    { id: 'wardrobe', tx: 10, ty: 4, type: 'wardrobe', symbol: '👗', short: 'DRESS', title: 'Wardrobe', lines: ['Choose your makeup and birthday dress here.'] }
+  ],
   sky: [
     { id: 'sky_bridge_sign', tx: 8, ty: 2, type: 'sign', symbol: '🪧', short: 'BRIDGE', title: 'Signboard', lines: ['SKY BRIDGE', 'Follow the wind totems.'] },
     { id: 'sky_exit_sign', tx: 3, ty: 10, type: 'sign', symbol: '🪧', short: 'EXIT', title: 'Signboard', lines: ['SKY EXIT DOOR', 'Unlocks after Bridgekeeper quest.'] },
@@ -272,6 +298,7 @@ function unlockQuest(id: string) {
   const target = clues.value.find(c => c.id === id)
   if (target && !target.unlocked) {
     target.unlocked = true
+    showCompletedTaskHud(id)
     if (id === 'bridgekeeper') {
       puzzleState.value.skyExitUnlocked = true
     }
@@ -305,40 +332,68 @@ function getDynamicHint(myId: string) {
   return `Maybe try talking to ${npcHints[target.id]} next!`
 }
 
+function maybeAddCompliment(lines: string[]) {
+  if (!puzzleState.value.outfitReady) return lines
+  if (Math.random() > 0.35) return lines
+  if (lines.includes('You look beautiful today.')) return lines
+  return [...lines, 'You look beautiful today.']
+}
+
+function openWardrobe() {
+  wardrobeStep.value = 'makeup'
+  wardrobeOpen.value = true
+}
+
+function chooseMakeup(optionId: string) {
+  selectedMakeupId.value = optionId
+  wardrobeStep.value = 'dress'
+}
+
+function chooseDress(optionId: string) {
+  selectedDressId.value = optionId
+  puzzleState.value.outfitReady = true
+  wardrobeOpen.value = false
+  playClue()
+  openSystemDialogue('Wardrobe', [
+    'Your birthday look is ready.',
+    'You look beautiful today.'
+  ])
+}
+
 const npcsDatabase: Record<string, any[]> = {
   town: [
     { id: 'mom', questItem: 'shopping_list', tx: 5, ty: 6, start_tx: 5, start_ty: 6, x: 5*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2000, canMove: true, color: '#20B2AA', hair: '#8B4513', name: 'Mom', getDialogue: () => {
         const unlocked = isQuestDone('mom')
-        if (unlocked) return [`Happy Birthday again, ${props.recipientName}!`, getDynamicHint('mom')]
+        if (unlocked) return maybeAddCompliment([`Happy Birthday again, ${props.recipientName}!`, getDynamicHint('mom')])
         if (hasItem('shopping_list')) {
-          return [`Oh, you found my Shopping List! Thank you!`, `Happy Birthday, ${props.recipientName}! 🌸 The garden's roses hold a secret…`, getDynamicHint('mom')]
+          return maybeAddCompliment([`Oh, you found my Shopping List! Thank you!`, `Happy Birthday, ${props.recipientName}! 🌸 The garden's roses hold a secret…`, getDynamicHint('mom')])
         }
         return [`I wanted to bake a cake for you, but I lost my Shopping List... I think I dropped it somewhere slightly northeast of our house.`]
       }
     },
     { id: 'gardener', questItem: 'watering_can', tx: 18, ty: 11, start_tx: 18, start_ty: 11, x: 18*32, y: 11*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 3500, canMove: true, color: '#6B8E23', hair: '#888', name: 'Gardener', getDialogue: () => {
         const unlocked = isQuestDone('gardener')
-        if (unlocked) return [`Enjoy your day, ${props.recipientName}!`, getDynamicHint('gardener')]
+        if (unlocked) return maybeAddCompliment([`Enjoy your day, ${props.recipientName}!`, getDynamicHint('gardener')])
         if (hasItem('watering_can')) {
-          return [`My Watering Can! Now I can tend the roses.`, `Hello ${props.recipientName}! Happy birthday! 🌿 I hear coins jingle where gifts are sold.`, getDynamicHint('gardener')]
+          return maybeAddCompliment([`My Watering Can! Now I can tend the roses.`, `Hello ${props.recipientName}! Happy birthday! 🌿 I hear coins jingle where gifts are sold.`, getDynamicHint('gardener')])
         }
         return [`These flowers are so thirsty... I left my Watering Can somewhere in the western grass fields, but I'm too busy to look for it!`]
       }
     },
     { id: 'merchant', questItem: 'coin_pouch', tx: 30, ty: 12, start_tx: 30, start_ty: 12, x: 30*32, y: 12*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 5000, canMove: true, color: '#FF8C00', hair: '#222', name: 'Merchant', getDialogue: () => {
         const unlocked = isQuestDone('merchant')
-        if (unlocked) return [`Have a great day, ${props.recipientName}!`, getDynamicHint('merchant')]
+        if (unlocked) return maybeAddCompliment([`Have a great day, ${props.recipientName}!`, getDynamicHint('merchant')])
         if (hasItem('coin_pouch')) {
-          return [`My Coin Pouch! Bless you kind soul.`, `Hey ${props.recipientName}! 💰 They say a secret fountain holds the path to the grove.`, getDynamicHint('merchant')]
+          return maybeAddCompliment([`My Coin Pouch! Bless you kind soul.`, `Hey ${props.recipientName}! 💰 They say a secret fountain holds the path to the grove.`, getDynamicHint('merchant')])
         }
         return [`Business is ruined! Someone stole my Coin Pouch and dropped it somewhere directly east of here!`]
       }
     },
     { id: 'kid', questItem: 'toy_boat', tx: 25, ty: 6, start_tx: 25, start_ty: 6, x: 25*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2500, canMove: true, color: '#DC143C', hair: '#FFD700', name: 'Kid', getDialogue: () => {
         const unlocked = isQuestDone('kid')
-        if (unlocked) return [`Wow, I love playing at the fountain!`, getDynamicHint('kid')]
+        if (unlocked) return maybeAddCompliment([`Wow, I love playing at the fountain!`, getDynamicHint('kid')])
         if (hasItem('toy_boat')) {
-          return [`My Toy Boat! You found it!`, `Yay! 🌊 Look behind the ancient oak tree in the north garden...`, getDynamicHint('kid')]
+          return maybeAddCompliment([`My Toy Boat! You found it!`, `Yay! 🌊 Look behind the ancient oak tree in the north garden...`, getDynamicHint('kid')])
         }
         return [`*Sniff* I dropped my Toy Boat somewhere in the southern marketplace... Now I can't play at the fountain...`]
       }
@@ -415,6 +470,17 @@ let dialogueLineIndex = 0
 let giftTriggered = false
 let dialogueAutoHideTimer: number | null = null
 let dialogueChoiceHandler: null | ((choiceId: string) => void) = null
+let hudAutoHideTimer: number | null = null
+let englishQuizSteps: {
+  question: string
+  choices: { id: string, label: string }[]
+  hint: string
+}[] = []
+let englishQuizStepIndex = 0
+
+const showTaskHud = ref(false)
+const lastCompletedQuestText = ref('')
+const englishQuizActive = ref(false)
 
 // --- 3.5 Particle System (Confetti) ---
 interface Particle {
@@ -452,6 +518,26 @@ function clearDialogueChoices() {
   dialogueChoiceHandler = null
 }
 
+function clearHudAutoHideTimer() {
+  if (hudAutoHideTimer !== null) {
+    window.clearTimeout(hudAutoHideTimer)
+    hudAutoHideTimer = null
+  }
+}
+
+function showCompletedTaskHud(questId: string) {
+  const completed = clues.value.find(c => c.id === questId)
+  if (completed) {
+    lastCompletedQuestText.value = completed.text
+  }
+  showTaskHud.value = true
+  clearHudAutoHideTimer()
+  hudAutoHideTimer = window.setTimeout(() => {
+    showTaskHud.value = false
+    hudAutoHideTimer = null
+  }, 3600)
+}
+
 function closeDialogue() {
   clearDialogueAutoHideTimer()
   clearDialogueChoices()
@@ -480,6 +566,42 @@ function chooseDialogue(choiceId: string) {
   dialogueChoiceHandler(choiceId)
 }
 
+function presentEnglishQuizStep(stepIndex: number) {
+  const step = englishQuizSteps[stepIndex]
+  if (!step) return
+
+  dialogueSpeaker.value = 'English Mentor'
+  dialogueLines = [step.question]
+  dialogueLineIndex = 0
+  dialogueText.value = step.question
+  dialogueBlocking.value = true
+  dialogueOpen.value = true
+
+  setDialogueChoices(step.choices, (choiceId) => {
+    if (choiceId === 'correct') {
+      puzzleState.value.englishQuizStep = stepIndex + 1
+      playClue()
+
+      if (stepIndex + 1 >= englishQuizSteps.length) {
+        puzzleState.value.englishQuizPassed = true
+        englishQuizActive.value = false
+        openSystemDialogue('English Mentor', [
+          'Correct! Excellent work.',
+          'You passed all 3 English questions.'
+        ])
+        return
+      }
+
+      englishQuizStepIndex = stepIndex + 1
+      presentEnglishQuizStep(englishQuizStepIndex)
+      return
+    }
+
+    playFootstep()
+    dialogueText.value = `${step.question}\n${step.hint}`
+  })
+}
+
 function handleInteractable(interactable: any) {
   if (interactable.type === 'sign') {
     openSystemDialogue(interactable.title || 'Signboard', interactable.lines || ['The sign is hard to read.'])
@@ -492,6 +614,16 @@ function handleInteractable(interactable: any) {
     } else {
       openSystemDialogue('Sky Gate', [`The gate is sealed. Help all ${TOWN_GATE_QUEST_IDS.length} townsfolk first (${townQuestCount.value}/${TOWN_GATE_QUEST_IDS.length}).`])
     }
+    return
+  }
+
+  if (interactable.type === 'wardrobe') {
+    if (puzzleState.value.outfitReady) {
+      openSystemDialogue('Wardrobe', ['You already chose your birthday outfit. It looks lovely on you!'])
+      return
+    }
+    wardrobeStep.value = 'makeup'
+    wardrobeOpen.value = true
     return
   }
 
@@ -522,7 +654,10 @@ function openDialogue(npc: any) {
   clearDialogueChoices()
 
   if (npc.id === 'english_mentor') {
+    englishQuizActive.value = true
+
     if (puzzleState.value.englishQuizPassed) {
+      englishQuizActive.value = false
       openSystemDialogue('English Mentor', [
         'Great job again!',
         'You already passed the English challenge.'
@@ -530,7 +665,7 @@ function openDialogue(npc: any) {
       return
     }
 
-    const englishQuiz = [
+    englishQuizSteps = [
       {
         question: 'Question 1/3: Which sentence is grammatically correct?',
         choices: [
@@ -560,46 +695,8 @@ function openDialogue(npc: any) {
       }
     ]
 
-    const step = Math.min(puzzleState.value.englishQuizStep, englishQuiz.length - 1)
-    const current = englishQuiz[step]
-
-    dialogueSpeaker.value = npc.name
-    dialogueLines = [current.question]
-    dialogueLineIndex = 0
-    dialogueText.value = dialogueLines[0]
-    dialogueBlocking.value = true
-    dialogueOpen.value = true
-
-    setDialogueChoices(
-      current.choices,
-      (choiceId) => {
-        if (choiceId === 'correct') {
-          puzzleState.value.englishQuizStep += 1
-          const completedAll = puzzleState.value.englishQuizStep >= englishQuiz.length
-          puzzleState.value.englishQuizPassed = completedAll
-          playClue()
-
-          if (completedAll) {
-            openSystemDialogue('English Mentor', [
-              'Correct! Excellent work.',
-              'You passed all 3 English questions.'
-            ])
-          } else {
-            openSystemDialogue('English Mentor', [
-              `Correct! Great work on question ${puzzleState.value.englishQuizStep}.`,
-              `Talk to me again for question ${puzzleState.value.englishQuizStep + 1} of 3.`
-            ])
-          }
-          return
-        }
-
-        playFootstep()
-        openSystemDialogue('English Mentor', [
-          'Not quite. Try again!',
-          current.hint
-        ])
-      }
-    )
+    englishQuizStepIndex = Math.min(puzzleState.value.englishQuizStep, englishQuizSteps.length - 1)
+    presentEnglishQuizStep(englishQuizStepIndex)
     return
   }
 
@@ -709,6 +806,7 @@ let raf = 0
 let lastTime = 0
 
 function handleKeyDown(e: KeyboardEvent) {
+  if (wardrobeOpen.value) return
   if (e.key === ' ' || e.key === 'Enter') {
     e.preventDefault()
     triggerAction()
@@ -731,6 +829,7 @@ function handleKeyUp(e: KeyboardEvent) {
 
 // Touch/Mobile controls
 function startMove(k: 'w'|'a'|'s'|'d') {
+  if (wardrobeOpen.value) return
   if (dialogueOpen.value && dialogueBlocking.value) return
   keys[k] = true
   initAudio()
@@ -739,6 +838,7 @@ function stopMove(k: 'w'|'a'|'s'|'d') {
   keys[k] = false
 }
 function triggerAction() {
+  if (wardrobeOpen.value) return
   if (dialogueOpen.value) {
     nextDialogue()
     return
@@ -802,6 +902,7 @@ function update(dt: number) {
     p.rotation += p.dr * dtSeconds
   }
 
+  if (wardrobeOpen.value) return
   if (dialogueOpen.value && dialogueBlocking.value) return
 
   if (player.moving) {
@@ -818,7 +919,11 @@ function update(dt: number) {
 
       const warp = warps.value.find(w => w.tx === player.tx && w.ty === player.ty)
       if (warp) {
-        if (warp.requires && !puzzleState.value[warp.requires as 'townGateUnlocked' | 'windPathRevealed' | 'skyExitUnlocked']) {
+        if (warp.requires && !puzzleState.value[warp.requires as 'townGateUnlocked' | 'windPathRevealed' | 'skyExitUnlocked' | 'outfitReady']) {
+            if (warp.requires === 'outfitReady') {
+              openSystemDialogue('Wardrobe', ['You need to pick your makeup and birthday dress before leaving the room.'])
+              return
+            }
           if (warp.requires === 'skyExitUnlocked') {
             openSystemDialogue('Exit Door', ['The Sky Exit Door is sealed. Help the Bridgekeeper first to unlock it.'])
           } else {
@@ -959,6 +1064,145 @@ function drawSprite(t: CanvasRenderingContext2D, x: number, y: number, color: st
     t.fillRect(px + 14, py + 4, 2, 2)
   } else if (dir === 'left') {
     t.fillRect(px + 4, py + 4, 2, 2)
+  }
+}
+
+function drawPlayerSprite(
+  t: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  makeup: { blush: string, lip: string, eye: string, sparkle: string },
+  dress: { id: string, dress: string, trim: string, bow: string, shoes: string },
+  dir: string,
+  moving: boolean
+) {
+  const oy = moving && (Date.now() % 300 > 150) ? -2 : 0
+  const px = x + 6
+  const py = y + 4 + oy
+
+  const isRoseDress = dress.id === 'rose'
+  const isSkyDress = dress.id === 'sky'
+  const isLavenderDress = dress.id === 'lavender'
+
+  t.fillStyle = isSkyDress ? '#3f67c6' : isLavenderDress ? '#7a4fb5' : '#5a2b62'
+  t.fillRect(px + 3, py - 2, 14, 6)
+  t.fillRect(px + 2, py + 0, 16, 4)
+
+  if (isRoseDress) {
+    t.fillStyle = dress.bow
+    t.fillRect(px + 1, py + 1, 3, 4)
+    t.fillRect(px + 18, py + 1, 3, 4)
+  } else if (isSkyDress) {
+    t.fillStyle = dress.bow
+    t.fillRect(px + 7, py + 1, 8, 3)
+  } else if (isLavenderDress) {
+    t.fillStyle = dress.bow
+    t.fillRect(px + 0, py + 2, 4, 5)
+    t.fillRect(px + 18, py + 2, 4, 5)
+  }
+
+  t.fillStyle = '#FDDBB4'
+  t.fillRect(px + 2, py, 16, 12)
+
+  if (isRoseDress) {
+    t.fillStyle = '#f9b3c6'
+    t.fillRect(px + 1, py + 6, 4, 3)
+    t.fillRect(px + 17, py + 6, 4, 3)
+  } else if (isSkyDress) {
+    t.fillStyle = '#dcecff'
+    t.fillRect(px + 1, py + 5, 4, 4)
+    t.fillRect(px + 17, py + 5, 4, 4)
+  } else if (isLavenderDress) {
+    t.fillStyle = '#efe1ff'
+    t.fillRect(px + 0, py + 5, 5, 4)
+    t.fillRect(px + 17, py + 5, 5, 4)
+  }
+
+  t.fillStyle = makeup.sparkle
+  t.fillRect(px + 4, py + 2, 1, 1)
+  t.fillRect(px + 14, py + 2, 1, 1)
+  t.fillStyle = makeup.blush
+  t.fillRect(px + 3, py + 7, 2, 1)
+  t.fillRect(px + 13, py + 7, 2, 1)
+
+  t.fillStyle = makeup.eye
+  if (dir === 'down') {
+    t.fillRect(px + 6, py + 4, 2, 2)
+    t.fillRect(px + 12, py + 4, 2, 2)
+  } else if (dir === 'right') {
+    t.fillRect(px + 14, py + 4, 2, 2)
+  } else if (dir === 'left') {
+    t.fillRect(px + 4, py + 4, 2, 2)
+  } else {
+    t.fillRect(px + 6, py + 3, 2, 2)
+    t.fillRect(px + 12, py + 3, 2, 2)
+  }
+  t.fillStyle = makeup.lip
+  t.fillRect(px + 8, py + 9, 4, 1)
+
+  t.fillStyle = dress.bow
+  if (isRoseDress) {
+    t.fillRect(px + 10, py - 5, 9, 2)
+    t.fillRect(px + 13, py - 7, 2, 6)
+  } else if (isSkyDress) {
+    t.fillRect(px + 6, py - 5, 12, 2)
+    t.fillRect(px + 11, py - 7, 2, 6)
+  } else {
+    t.fillRect(px + 2, py - 5, 8, 2)
+    t.fillRect(px + 5, py - 7, 2, 6)
+  }
+
+  t.fillStyle = dress.dress
+  if (isRoseDress) {
+    t.fillRect(px + 2, py + 10, 16, 7)
+    t.fillRect(px + 0, py + 15, 20, 7)
+    t.fillRect(px + 4, py + 7, 12, 4)
+  } else if (isSkyDress) {
+    t.fillRect(px + 4, py + 10, 12, 8)
+    t.fillRect(px + 2, py + 16, 16, 6)
+    t.fillRect(px + 6, py + 13, 8, 2)
+  } else {
+    t.fillRect(px + 3, py + 10, 14, 7)
+    t.fillRect(px + 0, py + 16, 20, 7)
+    t.fillRect(px + 6, py + 13, 8, 2)
+  }
+  t.fillStyle = dress.trim
+  if (isRoseDress) {
+    t.fillRect(px + 3, py + 11, 14, 2)
+    t.fillRect(px + 1, py + 18, 18, 2)
+  } else if (isSkyDress) {
+    t.fillRect(px + 5, py + 11, 10, 2)
+    t.fillRect(px + 3, py + 18, 14, 2)
+  } else {
+    t.fillRect(px + 4, py + 11, 12, 2)
+    t.fillRect(px + 2, py + 18, 16, 2)
+  }
+
+  t.fillStyle = '#FDDBB4'
+  t.fillRect(px, py + 10, 3, 8)
+  t.fillRect(px + 17, py + 10, 3, 8)
+
+  if (isRoseDress) {
+    t.fillStyle = '#ffb7cc'
+    t.fillRect(px + 1, py + 14, 18, 1)
+  } else if (isSkyDress) {
+    t.fillStyle = '#a8d2ff'
+    t.fillRect(px + 1, py + 14, 18, 1)
+  } else {
+    t.fillStyle = '#e3c4ff'
+    t.fillRect(px + 1, py + 14, 18, 1)
+  }
+
+  t.fillStyle = dress.shoes
+  if (isRoseDress) {
+    t.fillRect(px + 3, py + 22, 5, 2)
+    t.fillRect(px + 12, py + 22, 5, 2)
+  } else if (isSkyDress) {
+    t.fillRect(px + 4, py + 22, 4, 2)
+    t.fillRect(px + 13, py + 22, 4, 2)
+  } else {
+    t.fillRect(px + 5, py + 22, 3, 2)
+    t.fillRect(px + 12, py + 22, 3, 2)
   }
 }
 
@@ -1187,6 +1431,18 @@ function render() {
       t.fillStyle = '#222'
       t.font = "8px 'Courier New'"
       t.fillText(interactable.short || 'SIGN', ix + 6, iy + 12)
+    } else if (interactable.type === 'wardrobe') {
+      t.fillStyle = '#8b5a2b'
+      t.fillRect(ix + 6, iy + 4, 20, 24)
+      t.fillStyle = '#deb887'
+      t.fillRect(ix + 8, iy + 6, 16, 20)
+      t.strokeStyle = '#5a3a1a'
+      t.strokeRect(ix + 6, iy + 4, 20, 24)
+      t.fillStyle = '#c0398f'
+      t.fillRect(ix + 14, iy + 12, 2, 6)
+      t.fillStyle = '#fff'
+      t.font = "9px 'Courier New'"
+      t.fillText('👗', ix + 9, iy + 19)
     }
 
     const dist = Math.abs(interactable.tx - player.tx) + Math.abs(interactable.ty - player.ty)
@@ -1237,7 +1493,7 @@ function render() {
     }
   }
 
-  drawSprite(t, player.x, player.y, '#E0507A', '#7030A0', player.dir, player.moving)
+  drawPlayerSprite(t, player.x, player.y, playerAppearance.value.makeup, playerAppearance.value.dress, player.dir, player.moving)
 
   for (const p of particles) {
     t.save()
@@ -1280,6 +1536,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   clearDialogueAutoHideTimer()
+  clearHudAutoHideTimer()
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
   cancelAnimationFrame(raf)
@@ -1299,7 +1556,9 @@ onBeforeUnmount(() => {
     <div class="controls-hint">▲▼◀▶ or WASD · SPACE/Enter to talk</div>
     <canvas ref="canvas" class="game-canvas" :class="{ hidden: !isGameLoaded }"></canvas>
     
-    <div class="hud">
+      <div v-if="showTaskHud" class="hud" :class="{ 'sky-hud': currentLevelId === 'sky' }">
+      <div class="hud-complete-banner">Task Completed</div>
+      <div v-if="lastCompletedQuestText" class="hud-complete-text">{{ lastCompletedQuestText }}</div>
       <div class="hud-clues">Quests: {{ completedQuestCount }}/{{ REQUIRED_QUEST_IDS.length }}</div>
       <div v-for="c in clues" :key="c.id" class="clue-item" :class="{ locked: !c.unlocked }">
          <span class="bullet" :class="{ check: c.unlocked }"></span> {{ c.unlocked ? c.text : '(locked)' }}
@@ -1321,6 +1580,9 @@ onBeforeUnmount(() => {
 
     <div v-if="dialogueOpen" class="dialogue-overlay centered-dialogue">
       <div class="dialogue-box">
+        <div v-if="englishQuizActive && dialogueSpeaker === 'English Mentor'" class="dialogue-progress">
+          English Challenge {{ englishQuizStepIndex + 1 }}/{{ englishQuizSteps.length }}
+        </div>
         <div class="dialogue-speaker">{{ dialogueSpeaker }}</div>
         <div class="dialogue-text">{{ dialogueText }}</div>
         <div v-if="dialogueChoices.length" class="dialogue-choices">
@@ -1334,6 +1596,50 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <button v-else class="dialogue-btn" @click="nextDialogue">Continue ▶</button>
+      </div>
+    </div>
+
+    <div v-if="wardrobeOpen" class="wardrobe-overlay">
+      <div class="wardrobe-panel">
+        <div class="wardrobe-title">Birthday Wardrobe</div>
+        <div class="wardrobe-subtitle">Choose your look before leaving the room.</div>
+        <div class="wardrobe-step">{{ wardrobeStep === 'makeup' ? 'Step 1 of 2: Makeup' : 'Step 2 of 2: Dress' }}</div>
+
+        <div v-if="wardrobeStep === 'makeup'" class="wardrobe-grid">
+          <button
+            v-for="option in makeupOptions"
+            :key="option.id"
+            class="wardrobe-choice"
+            @click="chooseMakeup(option.id)"
+          >
+            <span class="makeup-preview">
+              <span class="makeup-eye" :style="{ background: option.eye }"></span>
+              <span class="makeup-cheek" :style="{ background: option.blush }"></span>
+              <span class="makeup-lip" :style="{ background: option.lip }"></span>
+              <span class="makeup-sparkle" :style="{ background: option.sparkle }"></span>
+            </span>
+            <span>{{ option.label }}</span>
+          </button>
+        </div>
+
+        <div v-else class="wardrobe-grid">
+          <button
+            v-for="option in dressOptions"
+            :key="option.id"
+            class="wardrobe-choice dress-choice"
+            @click="chooseDress(option.id)"
+          >
+            <span class="dress-preview" :class="option.id">
+              <span class="dress-hair"></span>
+              <span class="dress-head"></span>
+              <span class="dress-bow"></span>
+              <span class="dress-body"></span>
+              <span class="dress-hem"></span>
+              <span class="dress-shoes"></span>
+            </span>
+            <span>{{ option.label }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1444,6 +1750,26 @@ onBeforeUnmount(() => {
   border: 2px solid #555;
 }
 
+.hud-complete-banner {
+  font-weight: bold;
+  color: #8cff8c;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.hud-complete-text {
+  color: #d8ffd8;
+  font-size: 12px;
+  margin-bottom: 8px;
+  line-height: 1.25;
+}
+
+.hud.sky-hud {
+  left: auto;
+  right: 10px;
+}
+
 .hud-clues {
   font-weight: bold;
   color: #FFD700;
@@ -1546,7 +1872,7 @@ onBeforeUnmount(() => {
   left: 50%;
   transform: translate(-50%, -50%);
   bottom: auto;
-  width: min(80vw, 520px);
+  width: min(92vw, 760px);
   padding: 0;
   justify-content: center;
   z-index: 80;
@@ -1555,8 +1881,10 @@ onBeforeUnmount(() => {
 .centered-dialogue .dialogue-box {
   width: 100%;
   background: rgba(255, 255, 255, 0.94);
-  border-width: 4px;
-  padding: 12px 16px;
+  border-width: 5px;
+  padding: 18px 22px;
+  max-height: 76dvh;
+  overflow: auto;
 }
 
 .dialogue-box {
@@ -1570,34 +1898,291 @@ onBeforeUnmount(() => {
 }
 
 .dialogue-speaker {
-  font-size: 18px;
+  font-size: clamp(18px, 2.5vw, 28px);
   font-weight: bold;
   color: #FFD700;
   text-shadow: 1px 1px 0 #333, -1px -1px 0 #333, 1px -1px 0 #333, -1px 1px 0 #333;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.dialogue-progress {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #1f2937;
+  color: #fff7c2;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: clamp(13px, 1.8vw, 18px);
+  font-weight: bold;
+  letter-spacing: 0.4px;
+  border: 2px solid #ffd700;
 }
 
 .dialogue-text {
-  font-size: 16px;
-  line-height: 1.5;
+  font-size: clamp(16px, 2.2vw, 24px);
+  line-height: 1.6;
   color: #000;
-  min-height: 48px;
+  min-height: 72px;
+}
+
+.dialogue-choices {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.dialogue-choice-btn {
+  width: 100%;
+  text-align: left;
+  background: #f7f0c8;
+  border: 2px solid #333;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: clamp(13px, 1.8vw, 18px);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.dialogue-choice-btn:hover {
+  background: #ffe680;
 }
 
 .dialogue-btn {
-  margin-top: 12px;
+  margin-top: 14px;
   float: right;
   background: #FFD700;
   border: 2px solid #333;
-  padding: 6px 12px;
+  padding: 10px 14px;
   font-family: inherit;
   font-weight: bold;
+  font-size: clamp(12px, 1.7vw, 16px);
   cursor: pointer;
   outline: none;
 }
 
 .dialogue-btn:hover {
   background: #ffec8b;
+}
+
+.wardrobe-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 8, 20, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  padding: 16px;
+}
+
+.wardrobe-panel {
+  width: min(92vw, 520px);
+  background: linear-gradient(180deg, #fff9fe 0%, #f9f0ff 100%);
+  border: 6px solid #4b2350;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  border-radius: 18px;
+  padding: 18px;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.wardrobe-title {
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: bold;
+  color: #7a215f;
+  margin-bottom: 8px;
+}
+
+.wardrobe-subtitle {
+  color: #5a3a5f;
+  margin-bottom: 8px;
+  font-size: clamp(13px, 1.8vw, 16px);
+}
+
+.wardrobe-step {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #ffe0f0;
+  color: #5c2149;
+  font-weight: bold;
+  margin-bottom: 14px;
+}
+
+.wardrobe-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.wardrobe-choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 2px solid #7b5370;
+  background: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: clamp(14px, 1.9vw, 18px);
+  text-align: left;
+}
+
+.wardrobe-choice:hover {
+  background: #fff0fa;
+}
+
+.wardrobe-choice > span:last-child {
+  flex: 1;
+}
+
+.makeup-preview {
+  position: relative;
+  width: 42px;
+  height: 28px;
+  border-radius: 10px;
+  background: #fff7fb;
+  border: 2px solid rgba(123, 83, 112, 0.35);
+  flex-shrink: 0;
+}
+
+.makeup-eye,
+.makeup-cheek,
+.makeup-lip,
+.makeup-sparkle {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.makeup-eye {
+  width: 5px;
+  height: 5px;
+  left: 10px;
+  top: 9px;
+}
+
+.makeup-cheek {
+  width: 6px;
+  height: 3px;
+  top: 15px;
+  left: 8px;
+  border-radius: 999px;
+  opacity: 0.9;
+}
+
+.makeup-lip {
+  width: 8px;
+  height: 3px;
+  left: 18px;
+  top: 18px;
+  border-radius: 999px;
+}
+
+.makeup-sparkle {
+  width: 4px;
+  height: 4px;
+  left: 28px;
+  top: 8px;
+}
+
+.dress-preview {
+  position: relative;
+  width: 42px;
+  height: 44px;
+  border-radius: 10px;
+  background: #fff7fb;
+  border: 2px solid rgba(123, 83, 112, 0.35);
+  flex-shrink: 0;
+}
+
+.dress-hair,
+.dress-head,
+.dress-bow,
+.dress-body,
+.dress-hem,
+.dress-shoes {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.dress-hair {
+  width: 18px;
+  height: 8px;
+  top: 2px;
+  border-radius: 8px 8px 4px 4px;
+  background: #5a2b62;
+}
+
+.dress-head {
+  width: 14px;
+  height: 12px;
+  top: 7px;
+  border-radius: 6px;
+  background: #fdddb4;
+}
+
+.dress-bow {
+  width: 12px;
+  height: 5px;
+  top: 4px;
+  border-radius: 999px;
+}
+
+.dress-body {
+  width: 14px;
+  height: 14px;
+  top: 18px;
+  border-radius: 5px 5px 3px 3px;
+}
+
+.dress-hem {
+  width: 20px;
+  height: 10px;
+  top: 28px;
+  border-radius: 10px 10px 6px 6px;
+}
+
+.dress-shoes {
+  width: 16px;
+  height: 4px;
+  top: 38px;
+  border-radius: 999px;
+  background: #6a3f50;
+}
+
+.dress-preview.rose .dress-bow { background: #ff4f88; }
+.dress-preview.rose .dress-body { background: #ff7fa7; }
+.dress-preview.rose .dress-hem { background: #ffd4e0; }
+.dress-preview.rose .dress-hair { background: #4e2947; }
+.dress-preview.rose .dress-head { background: #fdddb4; }
+.dress-preview.rose .dress-shoes { background: #c93b66; }
+
+.dress-preview.sky .dress-bow { background: #4b88ff; }
+.dress-preview.sky .dress-body { background: #7eb8ff; }
+.dress-preview.sky .dress-hem { background: #dcecff; }
+.dress-preview.sky .dress-hair { background: #4b3d68; }
+.dress-preview.sky .dress-head { background: #fdddb4; }
+.dress-preview.sky .dress-shoes { background: #3d6fcc; }
+
+.dress-preview.lavender .dress-bow { background: #8e62ff; }
+.dress-preview.lavender .dress-body { background: #c89bff; }
+.dress-preview.lavender .dress-hem { background: #efe1ff; }
+.dress-preview.lavender .dress-hair { background: #51325b; }
+.dress-preview.lavender .dress-head { background: #fdddb4; }
+.dress-preview.lavender .dress-shoes { background: #6d45d1; }
+
+.swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.dress-swatch {
+  border-width: 3px;
 }
 
 /* Mobile Controls */
@@ -1692,18 +2277,21 @@ onBeforeUnmount(() => {
     display: none;
   }
   .adventure-wrapper {
-    max-width: none;
+    width: min(100%, calc(100dvh * 4 / 3));
+    max-width: 640px;
+    max-height: 100dvh;
+    aspect-ratio: 4 / 3;
     margin: 0;
     border: none;
     border-radius: 0;
-    aspect-ratio: unset;
     box-shadow: none;
     z-index: 40;
   }
   .game-canvas {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
   }
   .mobile-controls {
     display: block;
@@ -1724,6 +2312,11 @@ onBeforeUnmount(() => {
     backdrop-filter: blur(2px);
     z-index: 60;
   }
+
+  .hud.sky-hud {
+    left: auto;
+    right: 12px;
+  }
   .dialogue-overlay {
     bottom: 16px;
     z-index: 70;
@@ -1732,9 +2325,19 @@ onBeforeUnmount(() => {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: min(85vw, 360px);
+    width: min(94vw, 520px);
     bottom: auto;
     z-index: 80;
+  }
+
+  .wardrobe-panel {
+    width: min(94vw, 480px);
+    padding: 14px;
+  }
+
+  .wardrobe-choice {
+    gap: 8px;
+    padding: 10px 12px;
   }
 }
 </style>

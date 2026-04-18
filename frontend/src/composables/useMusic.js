@@ -40,6 +40,25 @@ const MELODIES = {
     { freq: 440.0, dur: 0.25 }, { freq: 523.3,  dur: 0.25 },
     { freq: 659.3, dur: 0.5  }, { freq: 0,      dur: 0.25 },
   ],
+  finalePT: [
+    // Faster, brighter Parabens pra voce-inspired finale phrase
+    { freq: 392.0, dur: 0.18 }, { freq: 392.0, dur: 0.11 },
+    { freq: 440.0, dur: 0.3 },  { freq: 392.0, dur: 0.3 },
+    { freq: 523.3, dur: 0.3 },  { freq: 493.9, dur: 0.56 },
+
+    { freq: 392.0, dur: 0.18 }, { freq: 392.0, dur: 0.11 },
+    { freq: 440.0, dur: 0.3 },  { freq: 392.0, dur: 0.3 },
+    { freq: 587.3, dur: 0.3 },  { freq: 523.3, dur: 0.56 },
+
+    { freq: 392.0, dur: 0.18 }, { freq: 392.0, dur: 0.11 },
+    { freq: 784.0, dur: 0.3 },  { freq: 659.3, dur: 0.3 },
+    { freq: 523.3, dur: 0.3 },  { freq: 493.9, dur: 0.3 },
+    { freq: 440.0, dur: 0.56 },
+
+    { freq: 698.5, dur: 0.18 }, { freq: 698.5, dur: 0.11 },
+    { freq: 659.3, dur: 0.3 },  { freq: 523.3, dur: 0.3 },
+    { freq: 587.3, dur: 0.3 },  { freq: 523.3, dur: 0.68 },
+  ],
 }
 
 function getOrCreateContext() {
@@ -63,6 +82,9 @@ function playMelody(trackId) {
   if (ctx.state === 'suspended') ctx.resume()
 
   const notes = MELODIES[trackId] || MELODIES.track1
+  const isFinalePortuguese = trackId === 'finalePT'
+  const oscType = isFinalePortuguese ? 'triangle' : 'sine'
+  const envPeak = isFinalePortuguese ? 0.72 : 0.6
   const totalDur = notes.reduce((s, n) => s + n.dur, 0)
 
   function scheduleMelody(startTime) {
@@ -71,10 +93,10 @@ function playMelody(trackId) {
       if (freq > 0) {
         const osc = ctx.createOscillator()
         const env = ctx.createGain()
-        osc.type = 'sine'
+        osc.type = oscType
         osc.frequency.value = freq
         env.gain.setValueAtTime(0, t)
-        env.gain.linearRampToValueAtTime(0.6, t + 0.02)
+        env.gain.linearRampToValueAtTime(envPeak, t + 0.018)
         env.gain.linearRampToValueAtTime(0, t + dur - 0.02)
         osc.connect(env)
         env.connect(gainNode)
@@ -156,5 +178,15 @@ export function useMusic() {
     }
   }
 
-  return { muted, playing, play, stop, toggleMute, unlockAndPlay }
+  function playFinalePortuguese() {
+    stop()
+    try {
+      playMelody('finalePT')
+      playing.value = true
+    } catch {
+      playing.value = false
+    }
+  }
+
+  return { muted, playing, play, stop, toggleMute, unlockAndPlay, playFinalePortuguese }
 }
