@@ -19,6 +19,25 @@ const config = computed(() => {
   return DEFAULT_CONFIG
 })
 
+function normalizeMessage(value) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+const resolvedCelebrationMessage = computed(() => {
+  const rawPersonalMessage = config.value.personalMessage || ''
+  const rawPrimaryMessage = config.value.message || ''
+
+  const personalMessage = normalizeMessage(rawPersonalMessage)
+  const primaryMessage = normalizeMessage(rawPrimaryMessage)
+  const defaultPersonalMessage = normalizeMessage(DEFAULT_CONFIG.personalMessage)
+
+  // If the personal message is still the default system copy, prefer the creator's typed message.
+  if (personalMessage && personalMessage !== defaultPersonalMessage) return rawPersonalMessage
+  if (primaryMessage) return rawPrimaryMessage
+  if (personalMessage) return rawPersonalMessage
+  return ''
+})
+
 const themeStyle = computed(() => {
   const t = config.value.theme || PRESETS.classic
   const dark = t.preset ? (PRESETS[t.preset]?.dark ?? true) : isBgDark(t.bg || PRESETS.classic.bg)
@@ -144,14 +163,14 @@ function exitGame() {
       <AdventureMap
         v-if="phase === 'adventure'"
         :recipient-name="config.recipientName || config.name || 'Aria'"
-        :personal-message="config.personalMessage || config.message || ''"
+        :personal-message="resolvedCelebrationMessage"
         @complete="startFinale"
       />
 
       <FinaleScene
         v-else-if="phase === 'finale'"
         :name="config.recipientName || config.name || 'Friend'"
-        :message="config.personalMessage || config.message || ''"
+        :message="resolvedCelebrationMessage"
         :accent="config.theme?.accent || PRESETS.classic.accent"
         @exit="exitGame"
       />

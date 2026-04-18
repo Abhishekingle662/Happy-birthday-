@@ -8,6 +8,9 @@ const props = defineProps({
 
 const emit = defineEmits(['complete'])
 
+const ENGLISH_GUIDE_NAME = 'Abhi'
+const ENGLISH_GUIDE_INTRO = 'abhi, your fav indian friend is here to help with english today....'
+
 // --- 1. Audio System ---
 let audioCtx: AudioContext | null = null
 function initAudio() {
@@ -191,6 +194,7 @@ const puzzleState = ref({
   townGateUnlocked: false,
   skyExitUnlocked: false,
   outfitReady: false,
+  abhiTalked: false,
   englishQuizPassed: false,
   englishQuizStep: 0,
   windsFound: {
@@ -314,6 +318,9 @@ function unlockQuest(id: string) {
 }
 
 const completedQuestCount = computed(() => REQUIRED_QUEST_IDS.filter(id => isQuestDone(id)).length)
+const canUnlockGift = computed(
+  () => completedQuestCount.value === REQUIRED_QUEST_IDS.length && puzzleState.value.abhiTalked
+)
 
 const townQuestCount = computed(() => TOWN_GATE_QUEST_IDS.filter(id => isQuestDone(id)).length)
 
@@ -334,6 +341,9 @@ const npcHints: Record<string, string> = {
 function getDynamicHint(myId: string) {
   const missing = clues.value.filter(c => REQUIRED_QUEST_IDS.includes(c.id) && !c.unlocked && c.id !== myId)
   if (missing.length === 0) {
+    if (!puzzleState.value.abhiTalked) {
+      return `Before opening the gift, talk with ${ENGLISH_GUIDE_NAME} in town.`
+    }
     return "You have completed every quest! Head to the Hidden Grove to open your gift!"
   }
   const target = missing[Math.floor(Math.random() * missing.length)]
@@ -406,7 +416,7 @@ const npcsDatabase: Record<string, any[]> = {
         return [`*Sniff* I dropped my Toy Boat somewhere in the southern marketplace... Now I can't play at the fountain...`]
       }
     },
-    { id: 'english_mentor', tx: 12, ty: 20, start_tx: 12, start_ty: 20, x: 12*32, y: 20*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 3200, canMove: true, color: '#4169E1', hair: '#1F2937', name: 'English Mentor', getDialogue: () => {
+    { id: 'english_mentor', tx: 12, ty: 20, start_tx: 12, start_ty: 20, x: 12*32, y: 20*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 3200, canMove: true, color: '#4169E1', hair: '#1F2937', name: ENGLISH_GUIDE_NAME, getDialogue: () => {
         if (puzzleState.value.englishQuizPassed) {
           return [
             'Excellent English, adventurer!',
@@ -414,7 +424,8 @@ const npcsDatabase: Record<string, any[]> = {
           ]
         }
         return [
-          `Welcome! English Challenge ${puzzleState.value.englishQuizStep + 1} of 3.`,
+          ENGLISH_GUIDE_INTRO,
+          `English Challenge ${puzzleState.value.englishQuizStep + 1} of 3.`,
           'Answer correctly to move to the next question.'
         ]
       }
@@ -422,6 +433,8 @@ const npcsDatabase: Record<string, any[]> = {
     { id: 'gift', tx: 31, ty: 2, start_tx: 31, start_ty: 2, x: 31*32, y: 2*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: Infinity, canMove: false, color: '#FFD700', hair: '#FF4500', name: 'Mystery Gift', getDialogue: () => {
         if (completedQuestCount.value < REQUIRED_QUEST_IDS.length) {
           return [`The gift is still sealed. Complete ${REQUIRED_QUEST_IDS.length - completedQuestCount.value} more quest(s) with your friends first!`]
+        } else if (!puzzleState.value.abhiTalked) {
+          return [`Did you talk with ${ENGLISH_GUIDE_NAME}?`]
         } else {
           return [
             "🎉 MYSTERY GIFT! 🎉",
@@ -578,7 +591,7 @@ function presentEnglishQuizStep(stepIndex: number) {
   const step = englishQuizSteps[stepIndex]
   if (!step) return
 
-  dialogueSpeaker.value = 'English Mentor'
+  dialogueSpeaker.value = ENGLISH_GUIDE_NAME
   dialogueLines = [step.question]
   dialogueLineIndex = 0
   dialogueText.value = step.question
@@ -593,7 +606,7 @@ function presentEnglishQuizStep(stepIndex: number) {
       if (stepIndex + 1 >= englishQuizSteps.length) {
         puzzleState.value.englishQuizPassed = true
         englishQuizActive.value = false
-        openSystemDialogue('English Mentor', [
+        openSystemDialogue(ENGLISH_GUIDE_NAME, [
           'Correct! Excellent work.',
           'You passed all 3 English questions.'
         ])
@@ -662,11 +675,12 @@ function openDialogue(npc: any) {
   clearDialogueChoices()
 
   if (npc.id === 'english_mentor') {
+    puzzleState.value.abhiTalked = true
     englishQuizActive.value = true
 
     if (puzzleState.value.englishQuizPassed) {
       englishQuizActive.value = false
-      openSystemDialogue('English Mentor', [
+      openSystemDialogue(ENGLISH_GUIDE_NAME, [
         'Great job again!',
         'You already passed the English challenge.'
       ])
@@ -675,7 +689,7 @@ function openDialogue(npc: any) {
 
     englishQuizSteps = [
       {
-        question: 'Question 1/3: Which sentence is grammatically correct?',
+        question: `${ENGLISH_GUIDE_INTRO} Question 1/3: Which sentence is grammatically correct?`,
         choices: [
           { id: 'wrong1', label: 'She go to school every day.' },
           { id: 'correct', label: 'She goes to school every day.' },
@@ -768,7 +782,7 @@ function openDialogue(npc: any) {
       // Doesn't have the quest item
       playFootstep() // Just a small feedback sound
     }
-  } else if (npc.id === 'gift' && completedQuestCount.value === REQUIRED_QUEST_IDS.length) {
+  } else if (npc.id === 'gift' && canUnlockGift.value) {
     playGift()
     giftTriggered = true
     spawnConfetti(npc.x * TILE_SIZE + 16, npc.y * TILE_SIZE + 16)
@@ -1486,7 +1500,7 @@ function render() {
 
   for (const npc of npcs.value) {
     if (npc.id === 'gift') {
-      drawGift(t, npc.x, npc.y, completedQuestCount.value === REQUIRED_QUEST_IDS.length)
+      drawGift(t, npc.x, npc.y, canUnlockGift.value)
     } else {
       drawSprite(t, npc.x, npc.y, npc.color, npc.hair, npc.dir, npc.moving)
       const dist = Math.abs(npc.tx - player.tx) + Math.abs(npc.ty - player.ty)
@@ -1596,7 +1610,7 @@ onBeforeUnmount(() => {
 
     <div v-if="dialogueOpen" class="dialogue-overlay centered-dialogue">
       <div class="dialogue-box" :class="{ 'quiz-active': englishQuizActive && dialogueChoices.length > 0 }">
-        <div v-if="englishQuizActive && dialogueSpeaker === 'English Mentor'" class="dialogue-progress">
+        <div v-if="englishQuizActive && dialogueSpeaker === ENGLISH_GUIDE_NAME" class="dialogue-progress">
           English Challenge {{ englishQuizStepIndex + 1 }}/{{ englishQuizSteps.length }}
         </div>
         <div class="dialogue-speaker">{{ dialogueSpeaker }}</div>
