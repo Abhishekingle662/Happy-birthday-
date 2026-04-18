@@ -128,7 +128,7 @@ const LEVELS = {
     ],
     solidTiles: ['V'],
     warps: [
-      { tx: 2, ty: 10, targetLevel: 'town', targetX: 23, targetY: 20, dir: 'left', requires: 'skyExitUnlocked' }
+      { tx: 2, ty: 10, targetLevel: 'town', targetX: 23, targetY: 20, dir: 'left' }
     ]
   }
 }
@@ -277,7 +277,7 @@ const interactablesDatabase = ref({
   ],
   sky: [
     { id: 'sky_bridge_sign', tx: 8, ty: 2, type: 'sign', symbol: '🪧', short: 'BRIDGE', title: 'Signboard', lines: ['SKY BRIDGE', 'Follow the wind totems.'] },
-    { id: 'sky_exit_sign', tx: 3, ty: 10, type: 'sign', symbol: '🪧', short: 'EXIT', title: 'Signboard', lines: ['SKY EXIT DOOR', 'Unlocks after Bridgekeeper quest.'] },
+    { id: 'sky_exit_sign', tx: 3, ty: 10, type: 'sign', symbol: '🪧', short: 'EXIT', title: 'Signboard', lines: ['SKY EXIT DOOR', 'Return to town anytime to gather what you need.'] },
     { id: 'wind_north', tx: 3, ty: 2, type: 'wind_totem', wind: 'north', symbol: 'N' },
     { id: 'wind_east', tx: 5, ty: 6, type: 'wind_totem', wind: 'east', symbol: 'E' },
     { id: 'wind_west', tx: 2, ty: 9, type: 'wind_totem', wind: 'west', symbol: 'W' }
@@ -935,16 +935,12 @@ function update(dt: number) {
 
       const warp = warps.value.find(w => w.tx === player.tx && w.ty === player.ty)
       if (warp) {
-        if (warp.requires && !puzzleState.value[warp.requires as 'townGateUnlocked' | 'windPathRevealed' | 'skyExitUnlocked' | 'outfitReady']) {
+        if (warp.requires && !puzzleState.value[warp.requires as 'townGateUnlocked' | 'windPathRevealed' | 'outfitReady']) {
             if (warp.requires === 'outfitReady') {
               openSystemDialogue('Wardrobe', ['You need to pick your makeup and birthday dress before leaving the room.'])
               return
             }
-          if (warp.requires === 'skyExitUnlocked') {
-            openSystemDialogue('Exit Door', ['The Sky Exit Door is sealed. Help the Bridgekeeper first to unlock it.'])
-          } else {
-            openSystemDialogue('Path Locked', ['A puzzle seal blocks the route. Solve the local challenge to proceed.'])
-          }
+          openSystemDialogue('Path Locked', ['A puzzle seal blocks the route. Solve the local challenge to proceed.'])
           return
         }
         currentLevelId.value = warp.targetLevel
@@ -1400,22 +1396,13 @@ function render() {
   if (currentLevelId.value === 'sky') {
     const doorX = 2 * TILE_SIZE
     const doorY = 10 * TILE_SIZE
-    const unlocked = puzzleState.value.skyExitUnlocked
 
-    t.fillStyle = unlocked ? '#7f5231' : '#4f4340'
+    t.fillStyle = '#7f5231'
     t.fillRect(doorX + 7, doorY + 3, 18, 26)
-    t.fillStyle = unlocked ? '#c7925c' : '#8e857d'
+    t.fillStyle = '#c7925c'
     t.fillRect(doorX + 9, doorY + 5, 14, 22)
     t.fillStyle = '#2a2a2a'
     t.fillRect(doorX + 17, doorY + 16, 2, 2)
-
-    if (!unlocked) {
-      t.fillStyle = '#f7d35c'
-      t.fillRect(doorX + 12, doorY + 12, 7, 5)
-      t.font = "9px 'Courier New'"
-      t.fillStyle = '#7a4f00'
-      t.fillText('L', doorX + 14, doorY + 16)
-    }
 
     t.font = "9px 'Courier New'"
     t.fillStyle = '#ffffff'
