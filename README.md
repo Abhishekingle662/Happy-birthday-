@@ -1,6 +1,6 @@
 # BirthdayQuest 🎂
 
-A birthday mini-game platform. The creator sets up a personalized experience via a wizard, shares a link, and the recipient plays through 3 casual clicker levels before receiving a surprise finale animation.
+A birthday mini-game platform. The creator sets up a personalized experience via a wizard, shares a link, and the recipient completes an NPC-driven adventure map before receiving a surprise finale animation.
 
 ## Structure
 
@@ -30,11 +30,8 @@ Then open http://localhost:5173 to create a birthday experience.
 
 1. **Creator** fills out a 4-step wizard: recipient name + message → theme → music → share link
 2. All config is Base64-encoded into the URL hash — no database needed
-3. **Player** opens the link and plays 3 levels:
-   - Level 1: Pop balloons 🎈
-   - Level 2: Catch falling gifts 🎁
-   - Level 3: Tap candles 🕯️
-4. After completing all levels, a sequential finale plays: animated cake → candle blow → fireworks → confetti → personal message reveal
+3. **Player** opens the link and progresses through the NPC adventure map by interacting with characters, clues, and objectives
+4. After completing the adventure, a sequential finale plays: animated cake → candle blow → fireworks → confetti → personal message reveal
 
 ## Music
 

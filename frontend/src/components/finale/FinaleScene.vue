@@ -8,6 +8,8 @@ const props = defineProps({
   accent:  { type: String, default: '#e94560' },
 })
 
+const emit = defineEmits(['exit'])
+
 // Phases: 'cake' | 'blowing' | 'fireworks' | 'message'
 const phase = ref('cake')
 const candlesLit = ref([true, true, true, true, true])
@@ -280,6 +282,7 @@ onUnmounted(() => {
         <div class="finale-emoji-row">🎉🎂🎊</div>
         <h1 class="finale-name">HAPPY BIRTHDAY,<br>{{ name.toUpperCase() }}!</h1>
         <p v-if="message" class="finale-message">{{ message }}</p>
+        <button class="exit-btn" @click="emit('exit')">Exit Game</button>
         <div class="finale-emoji-row" style="margin-top: 8px;">🎈🥳🎁</div>
       </div>
     </Transition>
@@ -399,7 +402,7 @@ onUnmounted(() => {
   justify-content: center;
   padding: 32px 24px;
   text-align: center;
-  pointer-events: none;
+  pointer-events: auto;
   background: rgba(0,0,0,0.5);
 }
 
@@ -422,6 +425,23 @@ onUnmounted(() => {
   padding: 12px 16px;
   background: var(--surface);
   box-shadow: 4px 4px 0px rgba(0,0,0,0.4);
+}
+
+.exit-btn {
+  margin-top: 14px;
+  background: var(--accent);
+  color: #fff;
+  border: 2px solid rgba(255,255,255,0.7);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: clamp(0.45rem, 1.5vw, 0.65rem);
+  cursor: pointer;
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.35);
+}
+
+.exit-btn:hover {
+  filter: brightness(1.08);
 }
 
 .finale-emoji-row {

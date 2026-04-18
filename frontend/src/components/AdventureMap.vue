@@ -38,7 +38,9 @@ function playGift() {
 }
 
 // --- 2. Maps & Levels ---
-// Legend: 0:Grass, 1:Path, 2:Tree, 3:HouseWall, 4:HouseRoof, 5:Water, 6:Fence, 7:Flower, 8:Market, 9:Gift, H:IndoorFloor, R:Rug
+// Legend: 0:Grass, 1:Path, 2:Tree, 3:HouseWall, 4:HouseRoof, 5:Water, 6:Fence,
+// 7:Flower, 8:Market, 9:Gift, H:IndoorFloor, R:Rug, C:Cloud Floor,
+// V:Sky Void, W:Hidden Wind Path
 const LEVELS = {
   town: {
     id: 'town',
@@ -78,7 +80,8 @@ const LEVELS = {
     ],
     solidTiles: ['2', '3', '5', '6'],
     warps: [
-      { tx: 4, ty: 7, targetLevel: 'house', targetX: 7, targetY: 9, dir: 'up' } // Enter house
+      { tx: 4, ty: 7, targetLevel: 'house', targetX: 7, targetY: 9, dir: 'up' }, // Enter house
+      { tx: 23, ty: 19, targetLevel: 'sky', targetX: 2, targetY: 10, dir: 'right', requires: 'townGateUnlocked' } // Gate to sky
     ]
   },
   house: {
@@ -104,10 +107,33 @@ const LEVELS = {
       { tx: 7, ty: 10, targetLevel: 'town', targetX: 4, targetY: 8, dir: 'down' }, // Exit to Town
       { tx: 8, ty: 10, targetLevel: 'town', targetX: 4, targetY: 8, dir: 'down' }
     ]
+  },
+  sky: {
+    id: 'sky',
+    cols: 20,
+    rows: 12,
+    tiles: [
+      'VVVVVVVVVVVVVVVVVVVV',
+      'VCCCCCCVVVVVVCCCCCCV',
+      'VCCCCCCVVVVVVCCCCCCV',
+      'VCCCCCCWWWWWWCCCCCCV',
+      'VCCCCCCVVVVVVCCCCCCV',
+      'VCCCCCCVVVVVVCCCCCCV',
+      'VCCCCCCVVVVVVCCCCCCV',
+      'VCCCCCCVVVVVVCCCCCCV',
+      'VCCCCCCVVVVVVCCCCCCV',
+      'VCCCCCCVVVVVVCCCCCCV',
+      'VCCCCCCVVVVVVCCCCCCV',
+      'VVVVVVVVVVVVVVVVVVVV'
+    ],
+    solidTiles: ['V'],
+    warps: [
+      { tx: 2, ty: 10, targetLevel: 'town', targetX: 23, targetY: 20, dir: 'left', requires: 'skyExitUnlocked' }
+    ]
   }
 }
 
-const currentLevelId = ref<'town'|'house'>('house')
+const currentLevelId = ref<'town'|'house'|'sky'>('house')
 const isGameLoaded = ref(false)
 
 const mapTiles = computed(() => LEVELS[currentLevelId.value].tiles)
@@ -117,18 +143,30 @@ const ROWS = computed(() => LEVELS[currentLevelId.value].rows)
 const warps = computed(() => LEVELS[currentLevelId.value].warps || [])
 const TILE_SIZE = 32
 
-const zones = [
-  { name: 'HOME', x: 0, y: 0, w: 15, h: 10 },
-  { name: 'FLOWER GARDEN', x: 10, y: 8, w: 15, h: 15 },
-  { name: 'MARKET STREET', x: 25, y: 8, w: 15, h: 12 },
-  { name: 'HIDDEN GROVE', x: 20, y: 0, w: 20, h: 8 }
-]
+const zonesByLevel: Record<string, { name: string, x: number, y: number, w: number, h: number }[]> = {
+  town: [
+    { name: 'HOME', x: 0, y: 0, w: 15, h: 10 },
+    { name: 'FLOWER GARDEN', x: 10, y: 8, w: 15, h: 15 },
+    { name: 'MARKET STREET', x: 25, y: 8, w: 15, h: 12 },
+    { name: 'HIDDEN GROVE', x: 20, y: 0, w: 20, h: 8 },
+    { name: 'SKY GATE', x: 20, y: 18, w: 8, h: 4 }
+  ],
+  sky: [
+    { name: 'CLOUD ENTRANCE', x: 0, y: 8, w: 8, h: 4 },
+    { name: 'WIND OBSERVATORY', x: 0, y: 1, w: 8, h: 7 },
+    { name: 'SKY BRIDGE', x: 7, y: 2, w: 6, h: 3 },
+    { name: 'RUINS OF AERIA', x: 13, y: 1, w: 7, h: 10 }
+  ],
+  house: []
+}
 
 function getZone(x: number, y: number) {
   if (currentLevelId.value === 'house') return `${props.recipientName.toUpperCase()}'S BEDROOM`
-  for (const z of zones) {
+  const levelZones = zonesByLevel[currentLevelId.value] || []
+  for (const z of levelZones) {
     if (x >= z.x && x < z.x + z.w && y >= z.y && y < z.y + z.h) return z.name
   }
+  if (currentLevelId.value === 'sky') return 'SKY RUINS'
   return 'TOWN RESIDENTIAL'
 }
 
@@ -138,25 +176,87 @@ setTimeout(() => showZoneLabel.value = false, 3000)
 
 // --- 3. Clues & NPCs & Items ---
 const inventory = ref<{id: string, name: string}[]>([])
+const REQUIRED_QUEST_IDS = ['mom', 'gardener', 'merchant', 'kid', 'bridgekeeper']
+const TOWN_GATE_QUEST_IDS = ['mom', 'gardener', 'merchant', 'kid']
+
+const puzzleState = ref({
+  townGateUnlocked: false,
+  skyExitUnlocked: false,
+  englishQuizPassed: false,
+  englishQuizStep: 0,
+  windsFound: {
+    north: false,
+    east: false,
+    west: false
+  },
+  windPathRevealed: false
+})
+
+const COMBO_RECIPES = [
+  {
+    parts: ['torn_map_left', 'torn_map_right'],
+    result: { id: 'sky_map', name: 'Sky Map', color: '#8EC9FF', symbol: '🗺️' }
+  }
+]
+
+function hasItem(id: string) {
+  return inventory.value.some(i => i.id === id)
+}
+
+function tryAutoCombine(): string[] {
+  const crafted: string[] = []
+  for (const recipe of COMBO_RECIPES) {
+    const hasAllParts = recipe.parts.every(part => hasItem(part))
+    const hasResult = hasItem(recipe.result.id)
+    if (!hasAllParts || hasResult) continue
+
+    inventory.value = inventory.value.filter(item => !recipe.parts.includes(item.id))
+    inventory.value.push(recipe.result)
+    crafted.push(`Crafted ${recipe.result.name} ${recipe.result.symbol} from ${recipe.parts.join(' + ')}.`)
+  }
+  return crafted
+}
 
 // Make items and npcs bound directly to their level
 const itemsDatabase = ref({
   town: [
     { id: 'shopping_list', tx: 8, ty: 6, name: 'Shopping List', color: '#EEE', symbol: '📝' },
     { id: 'watering_can', tx: 16, ty: 12, name: 'Watering Can', color: '#88C', symbol: '🚰' },
-    { id: 'coin_pouch', tx: 34, ty: 12, name: 'Coin Pouch', color: '#D4AF37', symbol: '💰' }
+    { id: 'coin_pouch', tx: 34, ty: 12, name: 'Coin Pouch', color: '#D4AF37', symbol: '💰' },
+    { id: 'torn_map_left', tx: 22, ty: 18, name: 'Torn Map (Left)', color: '#C8C8A0', symbol: '🧩' },
+    { id: 'torn_map_right', tx: 27, ty: 19, name: 'Torn Map (Right)', color: '#C8C8A0', symbol: '🧩' }
   ],
   house: [
     { id: 'toy_boat', tx: 4, ty: 5, name: 'Toy Boat', color: '#B22222', symbol: '⛵' }
+  ],
+  sky: [
+    { id: 'wind_token', tx: 4, ty: 2, name: 'Wind Token', color: '#B4ECFF', symbol: '🪶' }
   ]
 })
-const mapItems = computed(() => itemsDatabase.value[currentLevelId.value])
+const mapItems = computed(() => itemsDatabase.value[currentLevelId.value] || [])
+
+const interactablesDatabase = ref({
+  town: [
+    { id: 'sky_gate_pillar', tx: 24, ty: 19, type: 'sky_gate', symbol: '⛩️' },
+    { id: 'sky_gate_sign', tx: 22, ty: 19, type: 'sign', symbol: '🪧', short: 'GATE', title: 'Signboard', lines: ['SKY GATE', 'Complete town quests first.'] }
+  ],
+  house: [],
+  sky: [
+    { id: 'sky_bridge_sign', tx: 8, ty: 2, type: 'sign', symbol: '🪧', short: 'BRIDGE', title: 'Signboard', lines: ['SKY BRIDGE', 'Follow the wind totems.'] },
+    { id: 'sky_exit_sign', tx: 3, ty: 10, type: 'sign', symbol: '🪧', short: 'EXIT', title: 'Signboard', lines: ['SKY EXIT DOOR', 'Unlocks after Bridgekeeper quest.'] },
+    { id: 'wind_north', tx: 3, ty: 2, type: 'wind_totem', wind: 'north', symbol: 'N' },
+    { id: 'wind_east', tx: 5, ty: 6, type: 'wind_totem', wind: 'east', symbol: 'E' },
+    { id: 'wind_west', tx: 2, ty: 9, type: 'wind_totem', wind: 'west', symbol: 'W' }
+  ]
+})
+const levelInteractables = computed(() => interactablesDatabase.value[currentLevelId.value] || [])
 
 const clues = ref([
   { id: 'mom', text: 'Bloom where the roses grow.', unlocked: false },
   { id: 'gardener', text: 'Where coins jingle and gifts are sold.', unlocked: false },
   { id: 'merchant', text: 'The old fountain holds a secret to the grove.', unlocked: false },
-  { id: 'kid', text: 'Behind the ancient oak in the north garden.', unlocked: false }
+  { id: 'kid', text: 'Behind the ancient oak in the north garden.', unlocked: false },
+  { id: 'bridgekeeper', text: 'Follow the winds to cross and claim the treasure.', unlocked: false }
 ])
 
 const unlockedClues = ref(0)
@@ -164,17 +264,42 @@ watch(clues, (newClues) => {
   unlockedClues.value = newClues.filter(c => c.unlocked).length
 }, { deep: true })
 
+function isQuestDone(id: string) {
+  return clues.value.find(c => c.id === id)?.unlocked || false
+}
+
+function unlockQuest(id: string) {
+  const target = clues.value.find(c => c.id === id)
+  if (target && !target.unlocked) {
+    target.unlocked = true
+    if (id === 'bridgekeeper') {
+      puzzleState.value.skyExitUnlocked = true
+    }
+  }
+}
+
+const completedQuestCount = computed(() => REQUIRED_QUEST_IDS.filter(id => isQuestDone(id)).length)
+
+const townQuestCount = computed(() => TOWN_GATE_QUEST_IDS.filter(id => isQuestDone(id)).length)
+
+watch(townQuestCount, (count) => {
+  if (count >= TOWN_GATE_QUEST_IDS.length) {
+    puzzleState.value.townGateUnlocked = true
+  }
+})
+
 const npcHints: Record<string, string> = {
   mom: "your Mom back in Town Residential",
   gardener: "the Gardener down in the Flower Garden",
   merchant: "the Merchant over at Market Street",
-  kid: "the kid by the fountain near the Hidden Grove"
+  kid: "the kid by the fountain near the Hidden Grove",
+  bridgekeeper: "the Bridgekeeper in the Sky Ruins"
 }
 
 function getDynamicHint(myId: string) {
-  const missing = clues.value.filter(c => !c.unlocked && c.id !== myId)
+  const missing = clues.value.filter(c => REQUIRED_QUEST_IDS.includes(c.id) && !c.unlocked && c.id !== myId)
   if (missing.length === 0) {
-    return "You have all the clues! Head to the Hidden Grove to open your gift!"
+    return "You have completed every quest! Head to the Hidden Grove to open your gift!"
   }
   const target = missing[Math.floor(Math.random() * missing.length)]
   return `Maybe try talking to ${npcHints[target.id]} next!`
@@ -183,44 +308,57 @@ function getDynamicHint(myId: string) {
 const npcsDatabase: Record<string, any[]> = {
   town: [
     { id: 'mom', questItem: 'shopping_list', tx: 5, ty: 6, start_tx: 5, start_ty: 6, x: 5*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2000, canMove: true, color: '#20B2AA', hair: '#8B4513', name: 'Mom', getDialogue: () => {
-        const unlocked = clues.value.find(c => c.id === 'mom')?.unlocked
+        const unlocked = isQuestDone('mom')
         if (unlocked) return [`Happy Birthday again, ${props.recipientName}!`, getDynamicHint('mom')]
-        if (inventory.value.find(i => i.id === 'shopping_list')) {
+        if (hasItem('shopping_list')) {
           return [`Oh, you found my Shopping List! Thank you!`, `Happy Birthday, ${props.recipientName}! 🌸 The garden's roses hold a secret…`, getDynamicHint('mom')]
         }
         return [`I wanted to bake a cake for you, but I lost my Shopping List... I think I dropped it somewhere slightly northeast of our house.`]
       }
     },
     { id: 'gardener', questItem: 'watering_can', tx: 18, ty: 11, start_tx: 18, start_ty: 11, x: 18*32, y: 11*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 3500, canMove: true, color: '#6B8E23', hair: '#888', name: 'Gardener', getDialogue: () => {
-        const unlocked = clues.value.find(c => c.id === 'gardener')?.unlocked
+        const unlocked = isQuestDone('gardener')
         if (unlocked) return [`Enjoy your day, ${props.recipientName}!`, getDynamicHint('gardener')]
-        if (inventory.value.find(i => i.id === 'watering_can')) {
+        if (hasItem('watering_can')) {
           return [`My Watering Can! Now I can tend the roses.`, `Hello ${props.recipientName}! Happy birthday! 🌿 I hear coins jingle where gifts are sold.`, getDynamicHint('gardener')]
         }
         return [`These flowers are so thirsty... I left my Watering Can somewhere in the western grass fields, but I'm too busy to look for it!`]
       }
     },
     { id: 'merchant', questItem: 'coin_pouch', tx: 30, ty: 12, start_tx: 30, start_ty: 12, x: 30*32, y: 12*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 5000, canMove: true, color: '#FF8C00', hair: '#222', name: 'Merchant', getDialogue: () => {
-        const unlocked = clues.value.find(c => c.id === 'merchant')?.unlocked
+        const unlocked = isQuestDone('merchant')
         if (unlocked) return [`Have a great day, ${props.recipientName}!`, getDynamicHint('merchant')]
-        if (inventory.value.find(i => i.id === 'coin_pouch')) {
+        if (hasItem('coin_pouch')) {
           return [`My Coin Pouch! Bless you kind soul.`, `Hey ${props.recipientName}! 💰 They say a secret fountain holds the path to the grove.`, getDynamicHint('merchant')]
         }
         return [`Business is ruined! Someone stole my Coin Pouch and dropped it somewhere directly east of here!`]
       }
     },
     { id: 'kid', questItem: 'toy_boat', tx: 25, ty: 6, start_tx: 25, start_ty: 6, x: 25*32, y: 6*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 2500, canMove: true, color: '#DC143C', hair: '#FFD700', name: 'Kid', getDialogue: () => {
-        const unlocked = clues.value.find(c => c.id === 'kid')?.unlocked
+        const unlocked = isQuestDone('kid')
         if (unlocked) return [`Wow, I love playing at the fountain!`, getDynamicHint('kid')]
-        if (inventory.value.find(i => i.id === 'toy_boat')) {
+        if (hasItem('toy_boat')) {
           return [`My Toy Boat! You found it!`, `Yay! 🌊 Look behind the ancient oak tree in the north garden...`, getDynamicHint('kid')]
         }
         return [`*Sniff* I dropped my Toy Boat somewhere in the southern marketplace... Now I can't play at the fountain...`]
       }
     },
+    { id: 'english_mentor', tx: 12, ty: 20, start_tx: 12, start_ty: 20, x: 12*32, y: 20*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: 3200, canMove: true, color: '#4169E1', hair: '#1F2937', name: 'English Mentor', getDialogue: () => {
+        if (puzzleState.value.englishQuizPassed) {
+          return [
+            'Excellent English, adventurer!',
+            'Keep speaking confidently. Your grammar is strong today!'
+          ]
+        }
+        return [
+          `Welcome! English Challenge ${puzzleState.value.englishQuizStep + 1} of 3.`,
+          'Answer correctly to move to the next question.'
+        ]
+      }
+    },
     { id: 'gift', tx: 31, ty: 2, start_tx: 31, start_ty: 2, x: 31*32, y: 2*32, dx: 0, dy: 0, dir: 'down', moving: false, walkTimer: 0, idleTimer: Infinity, canMove: false, color: '#FFD700', hair: '#FF4500', name: 'Mystery Gift', getDialogue: () => {
-        if (unlockedClues.value < 4) {
-          return [`The box is locked magic. (Find ${4 - unlockedClues.value} more clue(s) hidden with the townsfolk!)`]
+        if (completedQuestCount.value < REQUIRED_QUEST_IDS.length) {
+          return [`The gift is still sealed. Complete ${REQUIRED_QUEST_IDS.length - completedQuestCount.value} more quest(s) with your friends first!`]
         } else {
           return [
             "🎉 MYSTERY GIFT! 🎉",
@@ -233,7 +371,36 @@ const npcsDatabase: Record<string, any[]> = {
       }
     }
   ],
-  house: []
+  house: [],
+  sky: [
+    {
+      id: 'bridgekeeper',
+      questItem: 'sky_map',
+      tx: 15,
+      ty: 3,
+      start_tx: 15,
+      start_ty: 3,
+      x: 15 * 32,
+      y: 3 * 32,
+      dx: 0,
+      dy: 0,
+      dir: 'left',
+      moving: false,
+      walkTimer: 0,
+      idleTimer: 4000,
+      canMove: true,
+      color: '#5FB3B3',
+      hair: '#E0FFFF',
+      name: 'Bridgekeeper',
+      getDialogue: () => {
+        const unlocked = isQuestDone('bridgekeeper')
+        if (unlocked) return [`The winds guided you well. The treasure now waits below.`, getDynamicHint('bridgekeeper')]
+        if (!puzzleState.value.windPathRevealed) return ['Listen to the wind totems on the western side. They reveal the only safe route.']
+        if (!hasItem('sky_map')) return ['Bring me the completed Sky Map so I can verify your path.']
+        return ['You are ready for the final wind riddle.']
+      }
+    }
+  ]
 }
 
 const npcs = computed(() => npcsDatabase[currentLevelId.value] || [])
@@ -242,10 +409,12 @@ const dialogueOpen = ref(false)
 const dialogueText = ref('')
 const dialogueSpeaker = ref('')
 const dialogueBlocking = ref(false)
+const dialogueChoices = ref<{ id: string, label: string }[]>([])
 let dialogueLines: string[] = []
 let dialogueLineIndex = 0
 let giftTriggered = false
 let dialogueAutoHideTimer: number | null = null
+let dialogueChoiceHandler: null | ((choiceId: string) => void) = null
 
 // --- 3.5 Particle System (Confetti) ---
 interface Particle {
@@ -278,15 +447,204 @@ function clearDialogueAutoHideTimer() {
   }
 }
 
+function clearDialogueChoices() {
+  dialogueChoices.value = []
+  dialogueChoiceHandler = null
+}
+
 function closeDialogue() {
   clearDialogueAutoHideTimer()
+  clearDialogueChoices()
   dialogueOpen.value = false
   dialogueBlocking.value = false
+}
+
+function openSystemDialogue(speaker: string, lines: string[]) {
+  clearDialogueAutoHideTimer()
+  clearDialogueChoices()
+  dialogueSpeaker.value = speaker
+  dialogueLines = lines
+  dialogueLineIndex = 0
+  dialogueText.value = dialogueLines[0] || ''
+  dialogueBlocking.value = true
+  dialogueOpen.value = true
+}
+
+function setDialogueChoices(choices: { id: string, label: string }[], handler: (choiceId: string) => void) {
+  dialogueChoices.value = choices
+  dialogueChoiceHandler = handler
+}
+
+function chooseDialogue(choiceId: string) {
+  if (!dialogueChoiceHandler) return
+  dialogueChoiceHandler(choiceId)
+}
+
+function handleInteractable(interactable: any) {
+  if (interactable.type === 'sign') {
+    openSystemDialogue(interactable.title || 'Signboard', interactable.lines || ['The sign is hard to read.'])
+    return
+  }
+
+  if (interactable.type === 'sky_gate') {
+    if (puzzleState.value.townGateUnlocked) {
+      openSystemDialogue('Sky Gate', ['The gate hums with light. Step onto the glowing tile to enter Sky Ruins.'])
+    } else {
+      openSystemDialogue('Sky Gate', [`The gate is sealed. Help all ${TOWN_GATE_QUEST_IDS.length} townsfolk first (${townQuestCount.value}/${TOWN_GATE_QUEST_IDS.length}).`])
+    }
+    return
+  }
+
+  if (interactable.type === 'wind_totem') {
+    const wind = interactable.wind as 'north' | 'east' | 'west'
+    puzzleState.value.windsFound[wind] = true
+
+    const windHint = wind === 'north'
+      ? 'North wind: Begin where the clouds rise.'
+      : wind === 'east'
+        ? 'East wind: Then follow the dawn-light.'
+        : 'West wind: End where sunset glows.'
+
+    if (!puzzleState.value.windPathRevealed && puzzleState.value.windsFound.north && puzzleState.value.windsFound.east && puzzleState.value.windsFound.west) {
+      puzzleState.value.windPathRevealed = true
+      playClue()
+      openSystemDialogue('Wind Totem', [windHint, 'All three winds align. Hidden bridge tiles now shimmer into view!'])
+      return
+    }
+
+    openSystemDialogue('Wind Totem', [windHint])
+  }
 }
 
 function openDialogue(npc: any) {
   initAudio()
   clearDialogueAutoHideTimer()
+  clearDialogueChoices()
+
+  if (npc.id === 'english_mentor') {
+    if (puzzleState.value.englishQuizPassed) {
+      openSystemDialogue('English Mentor', [
+        'Great job again!',
+        'You already passed the English challenge.'
+      ])
+      return
+    }
+
+    const englishQuiz = [
+      {
+        question: 'Question 1/3: Which sentence is grammatically correct?',
+        choices: [
+          { id: 'wrong1', label: 'She go to school every day.' },
+          { id: 'correct', label: 'She goes to school every day.' },
+          { id: 'wrong2', label: 'She going to school every day.' }
+        ],
+        hint: 'Hint: with "She", use the verb form ending in "-es".'
+      },
+      {
+        question: 'Question 2/3: Choose the best sentence for the past tense.',
+        choices: [
+          { id: 'wrong1', label: 'Yesterday, I have visit my friend.' },
+          { id: 'correct', label: 'Yesterday, I visited my friend.' },
+          { id: 'wrong2', label: 'Yesterday, I am visiting my friend.' }
+        ],
+        hint: 'Hint: use the simple past form for a finished action yesterday.'
+      },
+      {
+        question: 'Question 3/3: Which sentence is the most natural and polite request?',
+        choices: [
+          { id: 'correct', label: 'Could you please tell me where the sky gate is?' },
+          { id: 'wrong1', label: 'Tell me where sky gate is now.' },
+          { id: 'wrong2', label: 'You tell me where is the sky gate.' }
+        ],
+        hint: 'Hint: polite requests often use "Could you please...".'
+      }
+    ]
+
+    const step = Math.min(puzzleState.value.englishQuizStep, englishQuiz.length - 1)
+    const current = englishQuiz[step]
+
+    dialogueSpeaker.value = npc.name
+    dialogueLines = [current.question]
+    dialogueLineIndex = 0
+    dialogueText.value = dialogueLines[0]
+    dialogueBlocking.value = true
+    dialogueOpen.value = true
+
+    setDialogueChoices(
+      current.choices,
+      (choiceId) => {
+        if (choiceId === 'correct') {
+          puzzleState.value.englishQuizStep += 1
+          const completedAll = puzzleState.value.englishQuizStep >= englishQuiz.length
+          puzzleState.value.englishQuizPassed = completedAll
+          playClue()
+
+          if (completedAll) {
+            openSystemDialogue('English Mentor', [
+              'Correct! Excellent work.',
+              'You passed all 3 English questions.'
+            ])
+          } else {
+            openSystemDialogue('English Mentor', [
+              `Correct! Great work on question ${puzzleState.value.englishQuizStep}.`,
+              `Talk to me again for question ${puzzleState.value.englishQuizStep + 1} of 3.`
+            ])
+          }
+          return
+        }
+
+        playFootstep()
+        openSystemDialogue('English Mentor', [
+          'Not quite. Try again!',
+          current.hint
+        ])
+      }
+    )
+    return
+  }
+
+  if (npc.id === 'bridgekeeper' && !isQuestDone('bridgekeeper')) {
+    if (!puzzleState.value.windPathRevealed) {
+      openSystemDialogue('Bridgekeeper', ['Listen to all wind totems first. They reveal the safe crossing.'])
+      return
+    }
+
+    if (!hasItem('sky_map')) {
+      openSystemDialogue('Bridgekeeper', ['Bring me the completed Sky Map. The winds respect prepared travelers.'])
+      return
+    }
+
+    dialogueSpeaker.value = npc.name
+    dialogueLines = ['Which wind order reveals the true bridge route?']
+    dialogueLineIndex = 0
+    dialogueText.value = dialogueLines[0]
+    dialogueBlocking.value = true
+    dialogueOpen.value = true
+
+    setDialogueChoices(
+      [
+        { id: 'correct', label: 'North → East → West' },
+        { id: 'wrong1', label: 'East → North → West' },
+        { id: 'wrong2', label: 'West → East → North' }
+      ],
+      (choiceId) => {
+        if (choiceId === 'correct') {
+          inventory.value = inventory.value.filter(i => i.id !== 'sky_map')
+          unlockQuest('bridgekeeper')
+          playClue()
+          openSystemDialogue('Bridgekeeper', [
+            `Correct, ${props.recipientName}. The winds accept you.`,
+            getDynamicHint('bridgekeeper')
+          ])
+          return
+        }
+        playFootstep()
+        openSystemDialogue('Bridgekeeper', ['Not quite. No penalty - follow the wind totems and try again.'])
+      }
+    )
+    return
+  }
+
   dialogueLines = npc.getDialogue()
   dialogueSpeaker.value = npc.name
   dialogueLineIndex = 0
@@ -295,18 +653,17 @@ function openDialogue(npc: any) {
   // Make all dialogues block movement so the user can read them and dismiss manually
   dialogueBlocking.value = true
 
-  if (npc.id !== 'gift' && !clues.value.find(c => c.id === npc.id)?.unlocked) {
-    const clue = clues.value.find(c => c.id === npc.id)
-    if (npc.questItem && inventory.value.find(i => i.id === npc.questItem)) {
+  if (npc.id !== 'gift' && !isQuestDone(npc.id)) {
+    if (npc.questItem && hasItem(npc.questItem)) {
       // Remove used item from inventory
       inventory.value = inventory.value.filter(i => i.id !== npc.questItem)
-      if (clue) clue.unlocked = true
+      unlockQuest(npc.id)
       playClue()
     } else {
       // Doesn't have the quest item
       playFootstep() // Just a small feedback sound
     }
-  } else if (npc.id === 'gift' && unlockedClues.value === 4) {
+  } else if (npc.id === 'gift' && completedQuestCount.value === REQUIRED_QUEST_IDS.length) {
     playGift()
     giftTriggered = true
     spawnConfetti(npc.x * TILE_SIZE + 16, npc.y * TILE_SIZE + 16)
@@ -318,6 +675,8 @@ function openDialogue(npc: any) {
 
 function nextDialogue() {
   initAudio()
+
+  if (dialogueChoices.value.length > 0) return
 
   dialogueLineIndex++
   if (dialogueLineIndex < dialogueLines.length) {
@@ -399,14 +758,17 @@ function checkInteract() {
     const item = mapItems.value[itemIndex]
     inventory.value.push(item)
     mapItems.value.splice(itemIndex, 1)
-    
+
+    const combineMessages = tryAutoCombine()
     playClue() // Play success sound
-    dialogueSpeaker.value = 'Item Found'
-    dialogueText.value = `You picked up: ${item.name} ${item.symbol}`
-    dialogueLines = [dialogueText.value]
-    dialogueLineIndex = 0
-    dialogueBlocking.value = true
-    dialogueOpen.value = true
+    const lines = [`You picked up: ${item.name} ${item.symbol}`, ...combineMessages]
+    openSystemDialogue('Item Found', lines)
+    return
+  }
+
+  const interactable = levelInteractables.value.find(i => i.tx === inx && i.ty === iny)
+  if (interactable) {
+    handleInteractable(interactable)
     return
   }
 
@@ -456,6 +818,14 @@ function update(dt: number) {
 
       const warp = warps.value.find(w => w.tx === player.tx && w.ty === player.ty)
       if (warp) {
+        if (warp.requires && !puzzleState.value[warp.requires as 'townGateUnlocked' | 'windPathRevealed' | 'skyExitUnlocked']) {
+          if (warp.requires === 'skyExitUnlocked') {
+            openSystemDialogue('Exit Door', ['The Sky Exit Door is sealed. Help the Bridgekeeper first to unlock it.'])
+          } else {
+            openSystemDialogue('Path Locked', ['A puzzle seal blocks the route. Solve the local challenge to proceed.'])
+          }
+          return
+        }
         currentLevelId.value = warp.targetLevel
         player.tx = warp.targetX
         player.ty = warp.targetY
@@ -488,7 +858,9 @@ function update(dt: number) {
           const tile = mapTiles.value[ny][nx]
           const hitNpc = npcs.value.find(n => n.tx === nx && n.ty === ny)
           const hitItem = mapItems.value.find(i => i.tx === nx && i.ty === ny)
-          if (!solidTiles.value.includes(tile) && !hitNpc && !hitItem) {
+          const hitInteractable = levelInteractables.value.find(i => i.tx === nx && i.ty === ny)
+          const isBlockedWindPath = tile === 'W' && !puzzleState.value.windPathRevealed
+          if (!solidTiles.value.includes(tile) && !isBlockedWindPath && !hitNpc && !hitItem && !hitInteractable) {
             player.tx = nx
             player.ty = ny
             player.dx = dx
@@ -540,9 +912,11 @@ function update(dt: number) {
           const hitPlayer = (nx === player.tx && ny === player.ty)
           const hitOtherNpc = npcs.value.find(n => n !== npc && n.tx === nx && n.ty === ny)
           const hitItem = mapItems.value.find(i => i.tx === nx && i.ty === ny)
+           const hitInteractable = levelInteractables.value.find(i => i.tx === nx && i.ty === ny)
           const inBounds = Math.abs(nx - npc.start_tx) <= 3 && Math.abs(ny - npc.start_ty) <= 3
+           const isBlockedWindPath = tile === 'W' && !puzzleState.value.windPathRevealed
           
-          if (!solidTiles.value.includes(tile) && !hitPlayer && !hitOtherNpc && !hitItem && inBounds) {
+           if (!solidTiles.value.includes(tile) && !isBlockedWindPath && !hitPlayer && !hitOtherNpc && !hitItem && !hitInteractable && inBounds) {
              npc.tx = nx
              npc.ty = ny
              npc.dx = move.dx
@@ -654,6 +1028,9 @@ function render() {
       if (currentLevelId.value === 'town') {
         t.fillStyle = (c+r)%2===0 ? '#5a8a34' : '#4e7a2c'
         t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+      } else if (currentLevelId.value === 'sky') {
+        t.fillStyle = (c + r) % 2 === 0 ? '#8fc3ff' : '#7db8fa'
+        t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
       } else { // house floor
          t.fillStyle = (c+r)%2===0 ? '#5c4033' : '#6f4f3e'
          t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
@@ -722,7 +1099,105 @@ function render() {
         t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
         t.fillStyle = '#F08080'
         t.fillRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8)
+      } else if (tile === 'C') { // Cloud floor
+        t.fillStyle = '#eef7ff'
+        t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+        t.fillStyle = '#d9ecff'
+        t.beginPath()
+        t.arc(px + 10, py + 18, 8, 0, Math.PI * 2)
+        t.arc(px + 18, py + 14, 8, 0, Math.PI * 2)
+        t.fill()
+      } else if (tile === 'V') { // Void
+        t.fillStyle = '#24406a'
+        t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+        t.fillStyle = '#1a3052'
+        t.fillRect(px + 3, py + 3, TILE_SIZE - 6, TILE_SIZE - 6)
+      } else if (tile === 'W') { // Hidden/revealed wind path
+        if (puzzleState.value.windPathRevealed) {
+          t.fillStyle = '#dff1ff'
+          t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+          t.fillStyle = '#75aee0'
+          t.font = "16px 'Courier New'"
+          t.fillText('➜', px + 9, py + 22)
+        } else {
+          t.fillStyle = '#2a4d7d'
+          t.fillRect(px, py, TILE_SIZE, TILE_SIZE)
+          t.fillStyle = '#365f97'
+          t.fillRect(px + 4, py + 4, TILE_SIZE - 8, TILE_SIZE - 8)
+        }
       }
+    }
+  }
+
+  // Sky exit door sprite: visual cue for leaving Sky Ruins.
+  if (currentLevelId.value === 'sky') {
+    const doorX = 2 * TILE_SIZE
+    const doorY = 10 * TILE_SIZE
+    const unlocked = puzzleState.value.skyExitUnlocked
+
+    t.fillStyle = unlocked ? '#7f5231' : '#4f4340'
+    t.fillRect(doorX + 7, doorY + 3, 18, 26)
+    t.fillStyle = unlocked ? '#c7925c' : '#8e857d'
+    t.fillRect(doorX + 9, doorY + 5, 14, 22)
+    t.fillStyle = '#2a2a2a'
+    t.fillRect(doorX + 17, doorY + 16, 2, 2)
+
+    if (!unlocked) {
+      t.fillStyle = '#f7d35c'
+      t.fillRect(doorX + 12, doorY + 12, 7, 5)
+      t.font = "9px 'Courier New'"
+      t.fillStyle = '#7a4f00'
+      t.fillText('L', doorX + 14, doorY + 16)
+    }
+
+    t.font = "9px 'Courier New'"
+    t.fillStyle = '#ffffff'
+    t.fillText('EXIT', doorX + 7, doorY + 1)
+  }
+
+  for (const interactable of levelInteractables.value) {
+    const ix = interactable.tx * TILE_SIZE
+    const iy = interactable.ty * TILE_SIZE
+    const bob = Math.sin(Date.now() / 220 + interactable.tx) * 1.5
+
+    if (interactable.type === 'wind_totem') {
+      t.fillStyle = '#89c8f2'
+      t.fillRect(ix + 11, iy + 6, 10, 20)
+      t.fillStyle = '#dff4ff'
+      t.beginPath()
+      t.arc(ix + 16, iy + 6 + bob, 6, 0, Math.PI * 2)
+      t.fill()
+      t.fillStyle = '#1c3558'
+      t.font = "11px 'Courier New'"
+      t.fillText(interactable.symbol, ix + 12, iy + 10 + bob)
+    } else if (interactable.type === 'sky_gate') {
+      t.fillStyle = puzzleState.value.townGateUnlocked ? '#8fffa5' : '#ffcf7f'
+      t.fillRect(ix + 8, iy + 8, 16, 16)
+      t.fillStyle = '#2a2a2a'
+      t.font = "12px 'Courier New'"
+      t.fillText('⛩', ix + 10, iy + 21)
+    } else if (interactable.type === 'sign') {
+      t.fillStyle = '#80552f'
+      t.fillRect(ix + 14, iy + 12, 4, 16)
+      t.fillStyle = '#f0e0b8'
+      t.fillRect(ix + 4, iy + 4, 24, 12)
+      t.strokeStyle = '#5a3a1a'
+      t.lineWidth = 1
+      t.strokeRect(ix + 4, iy + 4, 24, 12)
+      t.fillStyle = '#222'
+      t.font = "8px 'Courier New'"
+      t.fillText(interactable.short || 'SIGN', ix + 6, iy + 12)
+    }
+
+    const dist = Math.abs(interactable.tx - player.tx) + Math.abs(interactable.ty - player.ty)
+    if (dist <= 1) {
+      t.fillStyle = '#fff'
+      t.beginPath()
+      t.arc(ix + 16, iy - 5, 5, 0, Math.PI * 2)
+      t.fill()
+      t.fillStyle = '#000'
+      t.font = "11px 'Courier New'"
+      t.fillText('?', ix + 13, iy - 2)
     }
   }
 
@@ -745,7 +1220,7 @@ function render() {
 
   for (const npc of npcs.value) {
     if (npc.id === 'gift') {
-      drawGift(t, npc.x, npc.y, unlockedClues.value === 4)
+      drawGift(t, npc.x, npc.y, completedQuestCount.value === REQUIRED_QUEST_IDS.length)
     } else {
       drawSprite(t, npc.x, npc.y, npc.color, npc.hair, npc.dir, npc.moving)
       const dist = Math.abs(npc.tx - player.tx) + Math.abs(npc.ty - player.ty)
@@ -825,7 +1300,7 @@ onBeforeUnmount(() => {
     <canvas ref="canvas" class="game-canvas" :class="{ hidden: !isGameLoaded }"></canvas>
     
     <div class="hud">
-      <div class="hud-clues">Clues: {{ unlockedClues }}/4</div>
+      <div class="hud-clues">Quests: {{ completedQuestCount }}/{{ REQUIRED_QUEST_IDS.length }}</div>
       <div v-for="c in clues" :key="c.id" class="clue-item" :class="{ locked: !c.unlocked }">
          <span class="bullet" :class="{ check: c.unlocked }"></span> {{ c.unlocked ? c.text : '(locked)' }}
       </div>
@@ -848,7 +1323,17 @@ onBeforeUnmount(() => {
       <div class="dialogue-box">
         <div class="dialogue-speaker">{{ dialogueSpeaker }}</div>
         <div class="dialogue-text">{{ dialogueText }}</div>
-        <button class="dialogue-btn" @click="nextDialogue">Continue ▶</button>
+        <div v-if="dialogueChoices.length" class="dialogue-choices">
+          <button
+            v-for="choice in dialogueChoices"
+            :key="choice.id"
+            class="dialogue-choice-btn"
+            @click="chooseDialogue(choice.id)"
+          >
+            {{ choice.label }}
+          </button>
+        </div>
+        <button v-else class="dialogue-btn" @click="nextDialogue">Continue ▶</button>
       </div>
     </div>
 

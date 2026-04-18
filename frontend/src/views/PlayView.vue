@@ -1,6 +1,6 @@
 ﻿<script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { decodeConfig, DEFAULT_CONFIG, PRESETS, isBgDark } from '../utils/config.js'
 import { useMusic } from '../composables/useMusic.js'
 import AdventureMap from '../components/AdventureMap.vue'
@@ -8,6 +8,7 @@ import FinaleScene from '../components/finale/FinaleScene.vue'
 import MuteButton from '../components/MuteButton.vue'
 
 const route = useRoute()
+const router = useRouter()
 
 const config = computed(() => {
   const hash = route.hash.slice(1)
@@ -128,6 +129,10 @@ onUnmounted(() => {
 function startFinale() {
   phase.value = 'finale'
 }
+
+function exitGame() {
+  router.push('/')
+}
 </script>
 
 <template>
@@ -147,6 +152,7 @@ function startFinale() {
         :name="config.recipientName || config.name || 'Friend'"
         :message="config.personalMessage || config.message || ''"
         :accent="config.theme?.accent || PRESETS.classic.accent"
+        @exit="exitGame"
       />
     </Transition>
   </div>

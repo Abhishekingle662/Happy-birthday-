@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**BirthdayQuest** is a personalized birthday mini-game platform. A creator configures a personalized experience via a 4-step wizard (recipient details → theme → music → share). All config is encoded into a Base64 URL hash — no database required. The recipient visits the link and plays through 3 casual clicker-game levels, then unlocks a finale animation sequence.
+**BirthdayQuest** is a personalized birthday mini-game platform. A creator configures a personalized experience via a 4-step wizard (recipient details → theme → music → share). All config is encoded into a Base64 URL hash — no database required. The recipient visits the link, completes an NPC-driven adventure map, then unlocks a finale animation sequence.
 
 ---
 
@@ -49,13 +49,6 @@ src/
     │   ├── StepTheme.vue      # Step 2: theme preset + color picker
     │   ├── StepMusic.vue      # Step 3: track selector / file upload
     │   └── StepShare.vue      # Step 4: URL display + copy button
-    ├── game/
-    │   ├── GameLevel.vue      # Level controller (3 level types)
-    │   ├── LevelTransition.vue # Between-level pixel animation
-    │   └── sprites/
-    │       ├── BalloonSprite.vue
-    │       ├── GiftSprite.vue
-    │       └── CandleSprite.vue
     ├── finale/
     │   └── FinaleScene.vue    # Cake → candles → fireworks → confetti → message
     ├── AdventureMap.vue       # Exploration tile-map mini-game (1256 lines)
@@ -190,20 +183,13 @@ Custom colors override the preset; null preset = fully custom.
 
 **Autoplay policy**: Audio starts muted. The `MuteButton` component triggers unmute on first user gesture. `toggleMute()` syncs both the Web Audio `gainNode` and the `<audio>` element.
 
-### Game Levels (`GameLevel.vue`)
+### Adventure Gameplay (`AdventureMap.vue`)
 
-Three sequential levels with increasing difficulty:
+Gameplay is driven by a single exploration-focused map with NPCs, clues, and interactions.
 
-| Level | Objects | Count | Lifetime | Size |
-|-------|---------|-------|---------|------|
-| 1 | Balloons | 15 | 7s | 80px |
-| 2 | Gifts | 20 | 5.5s | 72px |
-| 3 | Candles | 25 | 4s | 64px |
-
-- Objects spawn progressively (not all at once).
-- Each object's GSAP tween is stored in `tweenMap` for individual on-pop kill.
-- Win condition: `popped === total` (missed objects don't block completion).
-- Progress bar: `(cleared / total) * 100`.
+- The map is the primary progression experience before the finale.
+- Completion is emitted from `AdventureMap.vue` and used by `PlayView.vue` to start the finale.
+- Theme variables and music state persist through the adventure and finale flow.
 
 ### Finale Sequence (`FinaleScene.vue`)
 

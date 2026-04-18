@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Build a web platform where a person ("creator") sets up a personalized birthday experience for someone else ("player"). The creator fills out a wizard with the player's name, a custom message, a visual theme, and background music, then receives a shareable link. The player opens the link and plays through 3 escalating casual clicker levels. Completing all levels triggers a sequential surprise finale animation (animated cake → fireworks + confetti + custom message).
+Build a web platform where a person ("creator") sets up a personalized birthday experience for someone else ("player"). The creator fills out a wizard with the player's name, a custom message, a visual theme, and background music, then receives a shareable link. The player opens the link and progresses through an NPC-driven adventure map experience. Completing the adventure triggers a sequential surprise finale animation (animated cake → fireworks + confetti + custom message).
 
 ---
 
@@ -42,22 +42,16 @@ Build a web platform where a person ("creator") sets up a personalized birthday 
   ```
 - Config is Base64-encoded and placed in the URL hash (never sent to server).
 
-### Game — 3 Levels
+### Game — NPC Adventure Map
 
-All levels share the same win condition: **clear all objects that appear on screen**.
+Gameplay is centered on an exploration map with NPC interactions.
 
-| Level | Mechanic | Objects | Difficulty |
-|-------|----------|---------|------------|
-| 1 | Pop balloons | 15 balloons, slow drift upward | Easy — slow speed, large targets |
-| 2 | Catch falling gifts | 20 gift boxes, fall from top | Medium — faster fall, smaller targets |
-| 3 | Tap candles | 25 candles, flicker on screen | Hard — fast appearance/disappearance, small targets |
+- The player navigates a tile-based adventure area and interacts with NPCs, clues, and map elements.
+- Adventure progression is event-driven (objectives, discoveries, or interaction milestones).
+- Completing the map objective emits completion and transitions directly into the finale sequence.
+- The flow remains fully playable with mouse and touch input.
 
-- Objects spawn progressively (not all at once).
-- Missing an object does **not** penalize the player — they simply need to tap/click all that appear before the wave ends.
-- A level-complete animation (brief GSAP transition) plays between levels.
-- A progress indicator (e.g. "Level 1 of 3") is always visible.
-
-### Surprise Finale (after Level 3)
+### Surprise Finale (after Adventure Completion)
 
 Sequential GSAP-animated story:
 
@@ -104,8 +98,8 @@ Sequential GSAP-animated story:
 
 - [ ] Creator wizard completes in 4 steps and produces a valid shareable URL.
 - [ ] Shareable URL decodes correctly and loads the game with the right name, message, theme, and music.
-- [ ] All 3 levels are playable; each clears when all objects are tapped/clicked.
-- [ ] Level transitions animate smoothly via GSAP.
+- [ ] NPC adventure gameplay is fully playable and can be completed end-to-end.
+- [ ] Completing the adventure transitions cleanly into the finale.
 - [ ] Finale plays the full sequential story: cake → candles → fireworks → confetti → message.
 - [ ] Custom name and message appear correctly in the finale.
 - [ ] Theme (preset or custom colors) is applied consistently across the game and finale.
@@ -125,14 +119,12 @@ Sequential GSAP-animated story:
 5. **Theme system** — Implement CSS custom properties for theming; wire up preset picker and color picker inputs.
 6. **Music backend** — Implement `POST /api/music` endpoint in Hono; return hosted file URL.
 7. **Music player** — Build a Vue composable for audio playback with autoplay policy handling and mute toggle.
-8. **Game engine** — Build a reusable game canvas/overlay component that handles object spawning, tap/click detection, and win-condition tracking.
-9. **Level 1 — Balloons** — Implement balloon objects with upward drift animation via GSAP.
-10. **Level 2 — Gifts** — Implement falling gift box objects with increasing fall speed.
-11. **Level 3 — Candles** — Implement flickering candle objects with fast appear/disappear timing.
-12. **Level transitions** — GSAP-animated between-level screens showing level number and a brief message.
-13. **Finale — Cake animation** — SVG/CSS cake component with GSAP entrance and candle-blow sequence.
-14. **Finale — Fireworks** — Canvas particle system for fireworks bursts.
-15. **Finale — Confetti + message reveal** — CSS confetti animation + GSAP text reveal for name and message.
-16. **Shareable URL UI** — Copy-to-clipboard button and QR code (optional) on wizard step 4.
-17. **Mobile polish** — Verify touch targets, test on small viewports, fix any layout issues.
-18. **End-to-end test** — Full creator → share → play → finale flow verification.
+8. **Adventure gameplay engine** — Build and refine the exploration map flow with NPC interactions, objective tracking, and completion emit.
+9. **Adventure progression** — Implement milestones/clues/interactions that guide the player through the map toward completion.
+10. **Adventure to finale transition** — Trigger finale start cleanly when the adventure completion event is emitted.
+11. **Finale — Cake animation** — SVG/CSS cake component with GSAP entrance and candle-blow sequence.
+12. **Finale — Fireworks** — Canvas particle system for fireworks bursts.
+13. **Finale — Confetti + message reveal** — CSS confetti animation + GSAP text reveal for name and message.
+14. **Shareable URL UI** — Copy-to-clipboard button and QR code (optional) on wizard step 4.
+15. **Mobile polish** — Verify touch targets, test on small viewports, fix any layout issues.
+16. **End-to-end test** — Full creator → share → play → finale flow verification.
