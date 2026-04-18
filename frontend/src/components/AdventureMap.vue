@@ -142,6 +142,14 @@ const COLS = computed(() => LEVELS[currentLevelId.value].cols)
 const ROWS = computed(() => LEVELS[currentLevelId.value].rows)
 const warps = computed(() => LEVELS[currentLevelId.value].warps || [])
 const TILE_SIZE = 32
+const BASE_VIEW_W = 640
+const BASE_VIEW_H = 480
+
+function getLevelFloorColor() {
+  if (currentLevelId.value === 'sky') return '#8fc3ff'
+  if (currentLevelId.value === 'house') return '#5c4033'
+  return '#5a8a34'
+}
 
 const zonesByLevel: Record<string, { name: string, x: number, y: number, w: number, h: number }[]> = {
   town: [
@@ -805,6 +813,14 @@ let ctx: CanvasRenderingContext2D | null = null
 let raf = 0
 let lastTime = 0
 
+function syncCanvasViewport() {
+  if (!canvas.value) return
+  const levelH = ROWS.value * TILE_SIZE
+  canvas.value.width = BASE_VIEW_W
+  canvas.value.height = Math.min(BASE_VIEW_H, levelH)
+  if (ctx) ctx.imageSmoothingEnabled = false
+}
+
 function handleKeyDown(e: KeyboardEvent) {
   if (wardrobeOpen.value) return
   if (e.key === ' ' || e.key === 'Enter') {
@@ -1248,15 +1264,22 @@ function render() {
   if (!canvas.value || !ctx) return
   const t = ctx
 
+  const levelW = COLS.value * TILE_SIZE
+  const levelH = ROWS.value * TILE_SIZE
+
   let camX = player.x - canvas.value.width / 2 + TILE_SIZE / 2
   let camY = player.y - canvas.value.height / 2 + TILE_SIZE / 2
-  camX = Math.max(0, Math.min(camX, COLS.value * TILE_SIZE - canvas.value.width))
-  camY = Math.max(0, Math.min(camY, ROWS.value * TILE_SIZE - canvas.value.height))
+  const maxCamX = Math.max(0, levelW - canvas.value.width)
+  const maxCamY = Math.max(0, levelH - canvas.value.height)
+  camX = Math.max(0, Math.min(camX, maxCamX))
+  camY = Math.max(0, Math.min(camY, maxCamY))
+  const centerOffsetX = Math.max(0, Math.floor((canvas.value.width - levelW) / 2))
+  const centerOffsetY = Math.max(0, Math.floor((canvas.value.height - levelH) / 2))
 
-  t.fillStyle = '#000'
+  t.fillStyle = getLevelFloorColor()
   t.fillRect(0, 0, canvas.value.width, canvas.value.height)
   t.save()
-  t.translate(-Math.floor(camX), -Math.floor(camY))
+  t.translate(centerOffsetX - Math.floor(camX), centerOffsetY - Math.floor(camY))
 
   const startC = Math.max(0, Math.floor(camX / TILE_SIZE))
   const endC = Math.min(COLS.value, Math.ceil((camX + canvas.value.width) / TILE_SIZE))
@@ -1519,13 +1542,13 @@ function loop(time: number) {
 
 onMounted(() => {
   if (canvas.value) {
-    canvas.value.width = 640
-    canvas.value.height = 480
     ctx = canvas.value.getContext('2d')
-    if (ctx) ctx.imageSmoothingEnabled = false
+    syncCanvasViewport()
   }
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('keyup', handleKeyUp)
+  window.addEventListener('resize', syncCanvasViewport)
+  window.addEventListener('orientationchange', syncCanvasViewport)
   raf = requestAnimationFrame(loop)
   
   // Simulate loading delay for assets
@@ -1534,11 +1557,17 @@ onMounted(() => {
   }, 1500)
 })
 
+watch(currentLevelId, () => {
+  syncCanvasViewport()
+})
+
 onBeforeUnmount(() => {
   clearDialogueAutoHideTimer()
   clearHudAutoHideTimer()
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('keyup', handleKeyUp)
+  window.removeEventListener('resize', syncCanvasViewport)
+  window.removeEventListener('orientationchange', syncCanvasViewport)
   cancelAnimationFrame(raf)
   if (audioCtx && audioCtx.state !== 'closed') {
     audioCtx.close()
@@ -1579,7 +1608,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-if="dialogueOpen" class="dialogue-overlay centered-dialogue">
-      <div class="dialogue-box">
+      <div class="dialogue-box" :class="{ 'quiz-active': englishQuizActive && dialogueChoices.length > 0 }">
         <div v-if="englishQuizActive && dialogueSpeaker === 'English Mentor'" class="dialogue-progress">
           English Challenge {{ englishQuizStepIndex + 1 }}/{{ englishQuizSteps.length }}
         </div>
@@ -1663,10 +1692,11 @@ onBeforeUnmount(() => {
 .adventure-wrapper {
   position: relative;
   width: 100%;
-  max-width: 640px;
+  max-width: none;
+  width: min(100vw, 960px);
   aspect-ratio: 4 / 3;
   margin: 0 auto;
-  background: #000;
+  background: var(--bg);
   box-shadow: 0 0 20px rgba(0,0,0,0.5);
   border: 4px solid #fff;
   border-radius: 4px;
@@ -1947,6 +1977,15 @@ onBeforeUnmount(() => {
 
 .dialogue-choice-btn:hover {
   background: #ffe680;
+}
+
+.dialogue-box.quiz-active {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialogue-box.quiz-active .dialogue-text {
+  min-height: 0;
 }
 
 .dialogue-btn {
@@ -2271,30 +2310,42 @@ onBeforeUnmount(() => {
 
 /* Touch-device layout and controls */
 @media (hover: none) and (pointer: coarse) {
-  
-  
   .controls-hint {
     display: none;
   }
   .adventure-wrapper {
-    width: min(100%, calc(100dvh * 4 / 3));
-    max-width: 640px;
-    max-height: 100dvh;
-    aspect-ratio: 4 / 3;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
     margin: 0;
     border: none;
     border-radius: 0;
+    aspect-ratio: unset;
     box-shadow: none;
     z-index: 40;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
   }
   .game-canvas {
-    width: 100%;
+    width: auto;
     height: 100%;
+    max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
-    object-position: center;
   }
   .mobile-controls {
     display: block;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .hud, .d-pad, .action-btns {
+    pointer-events: auto;
   }
   .hud {
     position: absolute;
@@ -2328,6 +2379,38 @@ onBeforeUnmount(() => {
     width: min(94vw, 520px);
     bottom: auto;
     z-index: 80;
+  }
+
+  .centered-dialogue .dialogue-box {
+    max-height: 90dvh;
+    padding: 12px 14px;
+  }
+
+  .dialogue-box.quiz-active .dialogue-progress {
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    font-size: clamp(11px, 3.6vw, 14px);
+  }
+
+  .dialogue-box.quiz-active .dialogue-speaker {
+    margin-bottom: 8px;
+    font-size: clamp(16px, 4.8vw, 22px);
+  }
+
+  .dialogue-box.quiz-active .dialogue-text {
+    font-size: clamp(13px, 3.8vw, 16px);
+    line-height: 1.35;
+  }
+
+  .dialogue-box.quiz-active .dialogue-choices {
+    margin-top: 10px;
+    gap: 8px;
+  }
+
+  .dialogue-box.quiz-active .dialogue-choice-btn {
+    padding: 8px 10px;
+    font-size: clamp(12px, 3.6vw, 15px);
+    line-height: 1.3;
   }
 
   .wardrobe-panel {

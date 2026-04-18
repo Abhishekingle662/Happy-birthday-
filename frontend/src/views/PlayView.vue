@@ -179,10 +179,7 @@ function exitGame() {
     inset: 0;
     width: 100vw;
     height: 100dvh;
-    padding-top: max(8px, env(safe-area-inset-top));
-    padding-right: max(8px, env(safe-area-inset-right));
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
-    padding-left: max(8px, env(safe-area-inset-left));
+    padding: 0;
   }
 }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }       
